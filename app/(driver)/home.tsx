@@ -10,6 +10,7 @@ import { useIncomingRideRequests } from "@/hooks/useIncomingRideRequests";
 import { signOut } from "@/services/auth";
 import { setOnline } from "@/services/driverStatus";
 import { acceptRide } from "@/services/rides";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function DriverHome() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function DriverHome() {
     try {
       await setOnline(driverId, value);
     } catch (err) {
-      Alert.alert("Erro", err instanceof Error ? err.message : String(err));
+      Alert.alert("Erro", getErrorMessage(err));
     }
   }
 
@@ -41,7 +42,7 @@ export default function DriverHome() {
       }
       router.push(`/(driver)/ride/${ride.id}`);
     } catch (err) {
-      Alert.alert("Erro ao aceitar", err instanceof Error ? err.message : String(err));
+      Alert.alert("Erro ao aceitar", getErrorMessage(err));
     } finally {
       setAcceptingId(null);
     }

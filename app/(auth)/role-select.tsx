@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity
 import { useAuth } from "@/contexts/AuthContext";
 import { createProfile } from "@/services/auth";
 import type { UserRole } from "@/types/database";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function RoleSelect() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function RoleSelect() {
       await refreshProfile();
       router.replace("/");
     } catch (err) {
-      Alert.alert("Erro ao salvar perfil", err instanceof Error ? err.message : String(err));
+      Alert.alert("Erro ao salvar perfil", getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

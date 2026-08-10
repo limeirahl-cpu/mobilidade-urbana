@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { signIn } from "@/services/auth";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function SignIn() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function SignIn() {
       await signIn(email.trim(), password);
       router.replace("/");
     } catch (err) {
-      Alert.alert("Erro ao entrar", err instanceof Error ? err.message : String(err));
+      Alert.alert("Erro ao entrar", getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

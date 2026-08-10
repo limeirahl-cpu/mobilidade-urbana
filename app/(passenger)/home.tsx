@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { signOut } from "@/services/auth";
 import { createRide } from "@/services/rides";
 import { estimateFare, haversineDistanceKm } from "@/utils/distance";
+import { getErrorMessage } from "@/utils/errors";
 
 const FALLBACK_CENTER: LatLng = { lat: -23.5505, lng: -46.6333 }; // São Paulo
 
@@ -44,7 +45,7 @@ export default function PassengerHome() {
       const ride = await createRide(session.user.id, pickup, dropoff);
       router.push(`/(passenger)/ride/${ride.id}`);
     } catch (err) {
-      Alert.alert("Erro ao pedir corrida", err instanceof Error ? err.message : String(err));
+      Alert.alert("Erro ao pedir corrida", getErrorMessage(err));
     } finally {
       setRequesting(false);
     }

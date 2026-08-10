@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { signUp } from "@/services/auth";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function SignUp() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function SignUp() {
         router.replace("/(auth)/sign-in");
       }
     } catch (err) {
-      Alert.alert("Erro ao cadastrar", err instanceof Error ? err.message : String(err));
+      Alert.alert("Erro ao cadastrar", getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }

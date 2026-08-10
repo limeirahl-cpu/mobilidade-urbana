@@ -7,6 +7,7 @@ import { RideStatusBanner } from "@/components/ride/RideStatusBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRide } from "@/hooks/useRide";
 import { cancelRide, completeRide, startHeadingToPickup, startRide } from "@/services/rides";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function DriverRideScreen() {
   const { rideId } = useLocalSearchParams<{ rideId: string }>();
@@ -18,7 +19,7 @@ export default function DriverRideScreen() {
     try {
       await action();
     } catch (err) {
-      Alert.alert("Erro", err instanceof Error ? err.message : String(err));
+      Alert.alert("Erro", getErrorMessage(err));
     }
   }
 

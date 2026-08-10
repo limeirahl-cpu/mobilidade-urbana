@@ -11,6 +11,7 @@ import { useRide } from "@/hooks/useRide";
 import { fetchProfile } from "@/services/auth";
 import { cancelRide } from "@/services/rides";
 import type { Profile } from "@/types/database";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function PassengerRideScreen() {
   const { rideId } = useLocalSearchParams<{ rideId: string }>();
@@ -31,7 +32,7 @@ export default function PassengerRideScreen() {
     try {
       await cancelRide(ride.id, session.user.id);
     } catch (err) {
-      Alert.alert("Erro ao cancelar", err instanceof Error ? err.message : String(err));
+      Alert.alert("Erro ao cancelar", getErrorMessage(err));
     }
   }
 
