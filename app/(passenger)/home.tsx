@@ -134,9 +134,14 @@ export default function PassengerHome() {
         />
       </View>
 
-      <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
-        <Text style={styles.signOutText}>Sair</Text>
-      </TouchableOpacity>
+      <View style={styles.topRightButtons}>
+        <TouchableOpacity style={styles.topButton} onPress={() => router.push("/(passenger)/history")}>
+          <Text style={styles.topButtonText}>Histórico</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.topButton} onPress={() => signOut()}>
+          <Text style={styles.signOutText}>Sair</Text>
+        </TouchableOpacity>
+      </View>
 
       <RideBottomSheet index={sheetIndex} snapPoints={SNAP_POINTS} onChangeIndex={setSheetIndex}>
         {!expanded ? (
@@ -217,10 +222,14 @@ export default function PassengerHome() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  signOutButton: {
+  topRightButtons: {
     position: "absolute",
     top: 56,
     right: 16,
+    flexDirection: "row",
+    gap: 8,
+  },
+  topButton: {
     backgroundColor: colors.white,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -231,6 +240,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 4,
   },
+  topButtonText: { color: colors.textPrimary, fontWeight: "700" },
   signOutText: { color: colors.danger, fontWeight: "700" },
   searchBar: {
     flexDirection: "row",

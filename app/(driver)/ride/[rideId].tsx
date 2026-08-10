@@ -5,14 +5,17 @@ import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity
 import { MapWebView } from "@/components/map/MapWebView";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
 import { FareEstimate } from "@/components/ride/FareEstimate";
+import { RatingForm } from "@/components/ride/RatingForm";
 import { RideStatusBanner } from "@/components/ride/RideStatusBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRide } from "@/hooks/useRide";
+import { fetchProfile } from "@/services/auth";
 import { fetchCategoryById } from "@/services/categories";
+import { fetchMyRatingForRide, submitRating } from "@/services/ratings";
 import { startRideWithPin } from "@/services/ridePin";
 import { cancelRide, completeRide, startHeadingToPickup } from "@/services/rides";
 import { colors } from "@/theme/colors";
-import type { RideCategory } from "@/types/database";
+import type { Profile, RideCategory, RideRating } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
 
 const SNAP_POINTS = ["30%", "55%"];
@@ -23,6 +26,8 @@ export default function DriverRideScreen() {
   const { session } = useAuth();
   const { ride, loading } = useRide(rideId ?? null);
   const [category, setCategory] = useState<RideCategory | null>(null);
+  const [passengerProfile, setPassengerProfile] = useState<Profile | null>(null);
+  const [myRating, setMyRating] = useState<RideRating | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [pinInput, setPinInput] = useState("");
   const [confirmingPin, setConfirmingPin] = useState(false);
@@ -32,6 +37,35 @@ export default function DriverRideScreen() {
       fetchCategoryById(ride.category_id).then(setCategory).catch(() => setCategory(null));
     }
   }, [ride?.category_id]);
+
+  useEffect(() => {
+    if (ride?.passenger_id) {
+      fetchProfile(ride.passenger_id).then(setPassengerProfile).catch(() => setPassengerProfile(null));
+    }
+  }, [ride?.passenger_id]);
+
+  useEffect(() => {
+    if (ride?.id && ride.status === "completed" && session?.user) {
+      fetchMyRatingForRide(ride.id, session.user.id).then(setMyRating).catch(() => setMyRating(null));
+    }
+  }, [ride?.id, ride?.status, session?.user]);
+
+  async function handleSubmitRating(stars: number, comment?: string) {
+    if (!ride || !session?.user) return;
+    try {
+      await submitRating(ride.id, session.user.id, ride.passenger_id, stars, comment);
+      setMyRating({
+        ride_id: ride.id,
+        rater_id: session.user.id,
+        ratee_id: ride.passenger_id,
+        stars,
+        comment: comment ?? null,
+        created_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      Alert.alert("Erro ao enviar avaliação", getErrorMessage(err));
+    }
+  }
 
   async function guard(action: () => Promise<void>) {
     try {
@@ -79,6 +113,18 @@ export default function DriverRideScreen() {
       <RideBottomSheet index={sheetIndex} snapPoints={SNAP_POINTS} onChangeIndex={setSheetIndex}>
         <RideStatusBanner status={ride.status} />
         {category && <Text style={styles.categoryBadge}>{category.label}</Text>}
+
+        {passengerProfile && (
+          <View style={styles.passengerCard}>
+            <View style={styles.passengerAvatar}>
+              <Text style={styles.passengerInitial}>{passengerProfile.full_name.charAt(0).toUpperCase()}</Text>
+            </View>
+            <Text style={styles.passengerName}>
+              {passengerProfile.full_name}
+              {passengerProfile.rating_avg != null ? `  ★ ${passengerProfile.rating_avg.toFixed(1)}` : ""}
+            </Text>
+          </View>
+        )}
 
         {ride.estimated_distance_km != null && ride.estimated_fare != null && (
           <FareEstimate distanceKm={ride.estimated_distance_km} fare={ride.estimated_fare} />
@@ -134,6 +180,13 @@ export default function DriverRideScreen() {
           </TouchableOpacity>
         )}
 
+        {ride.status === "completed" &&
+          (myRating ? (
+            <Text style={styles.myRating}>Você avaliou: {"★".repeat(myRating.stars)}</Text>
+          ) : (
+            <RatingForm onSubmit={handleSubmitRating} />
+          ))}
+
         {(ride.status === "completed" || ride.status === "cancelled") && (
           <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(driver)/home")}>
             <Text style={styles.doneText}>Voltar ao início</Text>
@@ -157,6 +210,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
+  passengerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+  },
+  passengerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.brandYellow,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  passengerInitial: { fontSize: 16, fontWeight: "800", color: colors.black },
+  passengerName: { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
+  myRating: { fontSize: 15, fontWeight: "700", color: colors.brandYellowDark, textAlign: "center" },
   pinSection: { gap: 10 },
   pinLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: "600" },
   pinInput: {

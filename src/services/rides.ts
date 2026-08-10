@@ -102,3 +102,15 @@ export async function fetchOpenRideRequests(categoryId: string): Promise<Ride[]>
   if (error) throw error;
   return data ?? [];
 }
+
+export async function fetchRideHistory(role: "passenger" | "driver", userId: string): Promise<Ride[]> {
+  const column = role === "passenger" ? "passenger_id" : "driver_id";
+  const { data, error } = await supabase
+    .from("rides")
+    .select("*")
+    .eq(column, userId)
+    .in("status", ["completed", "cancelled"])
+    .order("requested_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}

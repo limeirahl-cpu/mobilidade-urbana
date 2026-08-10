@@ -5,16 +5,18 @@ import { ActivityIndicator, Alert, Share, StyleSheet, Text, TouchableOpacity, Vi
 import { MapWebView } from "@/components/map/MapWebView";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
 import { FareEstimate } from "@/components/ride/FareEstimate";
+import { RatingForm } from "@/components/ride/RatingForm";
 import { RideStatusBanner } from "@/components/ride/RideStatusBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDriverStatus } from "@/hooks/useDriverStatus";
 import { useRide } from "@/hooks/useRide";
 import { fetchProfile } from "@/services/auth";
 import { fetchCategoryById } from "@/services/categories";
+import { fetchMyRatingForRide, submitRating } from "@/services/ratings";
 import { fetchPin } from "@/services/ridePin";
 import { cancelRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
-import type { Profile, RideCategory } from "@/types/database";
+import type { Profile, RideCategory, RideRating } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
 import { buildShareMessage } from "@/utils/shareRide";
 
@@ -29,6 +31,7 @@ export default function PassengerRideScreen() {
   const [driverProfile, setDriverProfile] = useState<Profile | null>(null);
   const [category, setCategory] = useState<RideCategory | null>(null);
   const [pin, setPin] = useState<string | null>(null);
+  const [myRating, setMyRating] = useState<RideRating | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
 
   useEffect(() => {
@@ -48,6 +51,29 @@ export default function PassengerRideScreen() {
       fetchPin(ride.id).then(setPin).catch(() => setPin(null));
     }
   }, [ride?.id]);
+
+  useEffect(() => {
+    if (ride?.id && ride.status === "completed" && session?.user) {
+      fetchMyRatingForRide(ride.id, session.user.id).then(setMyRating).catch(() => setMyRating(null));
+    }
+  }, [ride?.id, ride?.status, session?.user]);
+
+  async function handleSubmitRating(stars: number, comment?: string) {
+    if (!ride || !session?.user || !ride.driver_id) return;
+    try {
+      await submitRating(ride.id, session.user.id, ride.driver_id, stars, comment);
+      setMyRating({
+        ride_id: ride.id,
+        rater_id: session.user.id,
+        ratee_id: ride.driver_id,
+        stars,
+        comment: comment ?? null,
+        created_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      Alert.alert("Erro ao enviar avaliação", getErrorMessage(err));
+    }
+  }
 
   async function handleShare() {
     if (!ride) return;
@@ -103,7 +129,10 @@ export default function PassengerRideScreen() {
                 <Text style={styles.driverInitial}>{driverProfile.full_name.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.driverName}>{driverProfile.full_name}</Text>
+                <Text style={styles.driverName}>
+                  {driverProfile.full_name}
+                  {driverProfile.rating_avg != null ? `  ★ ${driverProfile.rating_avg.toFixed(1)}` : ""}
+                </Text>
                 {driverProfile.vehicle_info ? (
                   <Text style={styles.driverVehicle}>{driverProfile.vehicle_info}</Text>
                 ) : null}
@@ -134,6 +163,13 @@ export default function PassengerRideScreen() {
             <Text style={styles.cancelText}>Cancelar corrida</Text>
           </TouchableOpacity>
         )}
+
+        {ride.status === "completed" &&
+          (myRating ? (
+            <Text style={styles.myRating}>Você avaliou: {"★".repeat(myRating.stars)}</Text>
+          ) : (
+            <RatingForm onSubmit={handleSubmitRating} />
+          ))}
 
         {(ride.status === "completed" || ride.status === "cancelled") && (
           <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(passenger)/home")}>
@@ -186,6 +222,7 @@ const styles = StyleSheet.create({
   pinHint: { fontSize: 12, color: colors.textSecondary, textAlign: "center" },
   shareButton: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, alignItems: "center" },
   shareText: { color: colors.textPrimary, fontWeight: "700" },
+  myRating: { fontSize: 15, fontWeight: "700", color: colors.brandYellowDark, textAlign: "center" },
   driverInitial: { fontSize: 18, fontWeight: "800", color: colors.black },
   driverName: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
   driverVehicle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },

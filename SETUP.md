@@ -21,6 +21,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de um proved
    - [`supabase/migrations/0004_fix_profiles_rides_rls_recursion.sql`](supabase/migrations/0004_fix_profiles_rides_rls_recursion.sql)
    - [`supabase/migrations/0005_ride_categories.sql`](supabase/migrations/0005_ride_categories.sql)
    - [`supabase/migrations/0006_boarding_pin.sql`](supabase/migrations/0006_boarding_pin.sql)
+   - [`supabase/migrations/0007_ratings.sql`](supabase/migrations/0007_ratings.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -75,6 +76,8 @@ Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo t
 8. **B**: toque em "Seguir para o embarque". Na tela do passageiro (A) deve aparecer um PIN de 4 dígitos.
 9. **B**: tente iniciar a corrida com um PIN errado — deve dar erro "PIN incorreto" sem avançar. Digite o PIN certo (o que aparece na tela de A) — a corrida deve avançar para "em andamento".
 10. **B**: toque em "Concluir corrida".
-11. **A**: deve ver a tela de conclusão com o resumo da tarifa.
+11. **A**: deve ver a tela de conclusão com o resumo da tarifa — avalie o motorista com estrelas e um comentário.
+12. **B**: avalie o passageiro também.
+13. Nos dois lados, toque em "Histórico" na tela inicial e confirme que a corrida concluída aparece na lista.
 
 Se algo travar, o primeiro lugar para olhar é o terminal onde `npx expo start` está rodando — os erros de JavaScript aparecem ali.

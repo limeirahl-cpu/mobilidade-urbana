@@ -85,6 +85,9 @@ export default function DriverHome() {
             onValueChange={toggleOnline}
             trackColor={{ true: colors.brandYellow, false: colors.border }}
           />
+          <TouchableOpacity onPress={() => router.push("/(driver)/history")}>
+            <Text style={styles.historyLink}>Histórico</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => signOut()}>
             <Text style={styles.signOut}>Sair</Text>
           </TouchableOpacity>
@@ -135,6 +138,7 @@ const styles = StyleSheet.create({
   topBarRight: { flexDirection: "row", alignItems: "center", gap: 14 },
   title: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
   subtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  historyLink: { color: colors.textPrimary, fontWeight: "700" },
   signOut: { color: colors.danger, fontWeight: "700" },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: 12 },
   hint: { color: colors.textSecondary, textAlign: "center" },

@@ -28,6 +28,17 @@ export interface Profile {
   phone: string | null;
   vehicle_info: string | null;
   category_id: string | null;
+  rating_avg: number | null;
+  rating_count: number;
+  created_at: string;
+}
+
+export interface RideRating {
+  ride_id: string;
+  rater_id: string;
+  ratee_id: string;
+  stars: number;
+  comment: string | null;
   created_at: string;
 }
 
