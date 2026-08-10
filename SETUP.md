@@ -1,6 +1,6 @@
 # Guia de setup — Urbix (MVP)
 
-Este app não roda "pronto": ele precisa de um backend (Supabase) e de um provedor de mapas (Mapbox) configurados com suas próprias chaves. Siga os passos abaixo uma vez só.
+Este app não roda "pronto": ele precisa de um backend (Supabase) e de uma API key do Google Maps configurados com suas próprias chaves. Siga os passos abaixo uma vez só.
 
 ## 1. Criar conta e projeto no Supabase
 
@@ -27,6 +27,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de um proved
    - [`supabase/migrations/0010_payment_method.sql`](supabase/migrations/0010_payment_method.sql)
    - [`supabase/migrations/0011_profile_gender.sql`](supabase/migrations/0011_profile_gender.sql)
    - [`supabase/migrations/0012_phone_profile_and_payments.sql`](supabase/migrations/0012_phone_profile_and_payments.sql)
+   - [`supabase/migrations/0013_ride_negotiation_and_capacity.sql`](supabase/migrations/0013_ride_negotiation_and_capacity.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -46,11 +47,22 @@ completar o cadastro**:
 
 Lembre de reativar isso (e trocar pro fluxo de SMS real) antes de qualquer lançamento real.
 
-## 4. Criar conta no Mapbox
+## 4. Criar a API key do Google Maps
 
-1. Acesse [mapbox.com](https://www.mapbox.com) e crie uma conta gratuita (não pede cartão de crédito).
-2. No painel, vá em **Tokens**.
-3. Copie o **Default public token** (começa com `pk.`), ou crie um novo.
+O mapa roda dentro de um WebView carregando o Google Maps JavaScript API
+(não é o SDK nativo — veja o comentário no topo de
+[`src/components/map/googleMapsHtml.ts`](src/components/map/googleMapsHtml.ts)
+pra entender por quê). Isso significa que a mesma key cobre mapa, busca de
+endereço e cálculo de rota:
+
+1. Acesse o [Google Cloud Console](https://console.cloud.google.com/) e crie um projeto (ou use um existente). Precisa de uma conta com faturamento ativado (o Google exige cartão, mas dá uma cota gratuita mensal generosa).
+2. Em **APIs e serviços → Biblioteca**, ative estas 4 APIs:
+   - **Maps JavaScript API**
+   - **Places API**
+   - **Directions API**
+   - **Geocoding API**
+3. Em **APIs e serviços → Credenciais**, crie uma **Chave de API**.
+4. Edite a chave e, em **Restrições de API**, marque "Restringir chave" e selecione só as 4 APIs acima. **Não** use restrição por app/site (referrer/pacote) — a key roda dentro de HTML embutido no WebView, sem uma origem HTTPS real, então esse tipo de restrição bloquearia tudo.
 
 ## 5. Preencher o `.env`
 
@@ -59,7 +71,7 @@ Na raiz do projeto, copie [`​.env.example`](.env.example) para um arquivo cham
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-aqui
-EXPO_PUBLIC_MAPBOX_TOKEN=pk.sua-chave-aqui
+EXPO_PUBLIC_GOOGLE_MAPS_KEY=sua-chave-do-google-maps-aqui
 ```
 
 ## 6. Rodar o app
@@ -79,7 +91,8 @@ Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo t
 
 1. **Dispositivo A**: digite um telefone, toque em "Enviar código" — a tela seguinte mostra um aviso "Modo de teste — código: XXXX" (é mockado, não chega SMS de verdade ainda). Digite esse código, confirme, escolha "Sou passageiro" e um gênero (Masculino/Feminino) — define qual boneco aparece no mapa.
 2. **Dispositivo B**: repita com outro telefone, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico), e ative o toggle **Online**. Depois, saia e entre de novo com o mesmo telefone — deve pular direto pra tela inicial, sem passar pelo cadastro de novo.
-3. **A**: toque em "Para onde vamos?". No destino, digite um endereço no campo de busca e escolha um resultado (ou toque direto no mapa). Escolha uma categoria entre os cartões de preço e uma forma de pagamento — o botão "Pedir corrida" só habilita depois dos dois. Se marcar uma categoria diferente da que o motorista B escolheu (ex: passageiro pede Moto, motorista está em Econômico), B não deve ver a corrida.
+3. **A**: toque em "Para onde vamos?". No destino, digite um endereço e escolha uma sugestão do Google Places (ou toque direto no mapa). Confirme que uma linha de rota real aparece entre embarque e destino (não só os dois marcadores). Escolha uma categoria entre os cartões — cada um mostra preço, capacidade (👤) e o tempo até o motorista mais próximo daquela categoria (ou "Sem motoristas" se B ainda não estiver online nela) — e uma forma de pagamento; o botão "Continuar" só habilita depois dos dois.
+3b. **A**: na tela de negociação, teste os dois caminhos: "Aceitar preço estimado" (deve ir direto pra confirmação, sem espera) e, numa corrida nova, "Sugerir outro valor" dentro da faixa mostrada — deve aparecer "Aguardando resposta do motorista..." por alguns segundos e depois um resultado (aceito, contraproposta ou recusado). Na tela de confirmação, revise o resumo e toque em "Confirmar corrida".
 4. **B**: a corrida deve aparecer no cartão em poucos segundos — toque em "Aceitar".
 5. **A**: a tela deve mostrar o motorista atribuído.
 6. Para simular o motorista se movendo (sem GPS real): no simulador iOS, vá em **Features → Location**; no Android, use os **Extended Controls → Location** e mova o ponto ou rode uma rota. O marcador azul no dispositivo A deve se mover em tempo real.

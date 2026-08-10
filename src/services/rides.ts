@@ -15,6 +15,7 @@ interface CreateRideInput {
   distanceKm: number;
   durationMin: number;
   fare: number;
+  suggestedFare?: number;
   pickupAddress?: string;
   dropoffAddress?: string;
   couponId?: string;
@@ -38,6 +39,7 @@ export async function createRide(input: CreateRideInput): Promise<Ride> {
       estimated_distance_km: input.distanceKm,
       estimated_duration_min: input.durationMin,
       estimated_fare: input.fare,
+      suggested_fare: input.suggestedFare ?? null,
       coupon_id: input.couponId ?? null,
       discount_amount: input.discountAmount ?? null,
     })

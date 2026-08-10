@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import WebView from "react-native-webview";
 
-import { mapboxMapHtml } from "./mapboxMapHtml";
+import { googleMapsHtml } from "./googleMapsHtml";
 
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY;
 
 export interface LatLng {
   lat: number;
@@ -26,6 +26,7 @@ interface MapWebViewProps {
   pickup?: PickupPoint | null;
   dropoff?: LatLng | null;
   driverLocation?: DriverPoint | null;
+  route?: LatLng[] | null;
   selectable?: SelectableTarget;
   onSelectLocation?: (point: LatLng) => void;
 }
@@ -35,6 +36,7 @@ export function MapWebView({
   pickup,
   dropoff,
   driverLocation,
+  route,
   selectable = "none",
   onSelectLocation,
 }: MapWebViewProps) {
@@ -46,7 +48,7 @@ export function MapWebView({
   }
 
   function handleLoadEnd() {
-    send({ type: "init", token: MAPBOX_TOKEN, center: initialCenter });
+    send({ type: "init", token: GOOGLE_MAPS_KEY, center: initialCenter });
   }
 
   function handleMessage(event: { nativeEvent: { data: string } }) {
@@ -64,15 +66,21 @@ export function MapWebView({
 
   useEffect(() => {
     if (!ready) return;
-    send({ type: "setMarkers", pickup: pickup ?? null, dropoff: dropoff ?? null, driver: driverLocation ?? null });
-  }, [ready, pickup, dropoff, driverLocation]);
+    send({
+      type: "setMarkers",
+      pickup: pickup ?? null,
+      dropoff: dropoff ?? null,
+      driver: driverLocation ?? null,
+      route: route ?? null,
+    });
+  }, [ready, pickup, dropoff, driverLocation, route]);
 
   useEffect(() => {
     if (!ready) return;
     send({ type: "setSelectable", mode: selectable });
   }, [ready, selectable]);
 
-  if (!MAPBOX_TOKEN) {
+  if (!GOOGLE_MAPS_KEY) {
     return <View style={styles.missingToken} />;
   }
 
@@ -81,7 +89,7 @@ export function MapWebView({
       <WebView
         ref={webviewRef}
         originWhitelist={["*"]}
-        source={{ html: mapboxMapHtml }}
+        source={{ html: googleMapsHtml }}
         onLoadEnd={handleLoadEnd}
         onMessage={handleMessage}
         javaScriptEnabled

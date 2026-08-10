@@ -18,6 +18,7 @@ export interface RideCategory {
   per_min_rate: number;
   min_fare: number;
   surge_multiplier: number;
+  capacity_passengers: number;
   active: boolean;
   sort_order: number;
 }
@@ -111,6 +112,7 @@ export interface Ride {
   estimated_distance_km: number | null;
   estimated_duration_min: number | null;
   estimated_fare: number | null;
+  suggested_fare: number | null;
   coupon_id: string | null;
   discount_amount: number | null;
   payment_method: string | null;

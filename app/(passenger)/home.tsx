@@ -20,10 +20,9 @@ import { fetchSavedAddresses } from "@/services/addresses";
 import { signOut } from "@/services/auth";
 import { fetchActiveCategories } from "@/services/categories";
 import { applyCoupon, type AppliedCoupon } from "@/services/coupons";
-import { getRoute } from "@/services/directions";
-import { searchAddress, type AddressResult } from "@/services/geocoding";
-import { createPinForRide } from "@/services/ridePin";
-import { createRide } from "@/services/rides";
+import { getRoute, type RouteEstimate } from "@/services/directions";
+import { estimateDriverEtaMinutes } from "@/services/driverEta";
+import { resolvePlaceDetails, searchAddress, type AddressResult } from "@/services/geocoding";
 import { colors } from "@/theme/colors";
 import type { RideCategory, SavedAddress } from "@/types/database";
 import { estimateFareForCategory, haversineDistanceKm } from "@/utils/distance";
@@ -34,6 +33,10 @@ const FALLBACK_CENTER: LatLng = { lat: -23.5505, lng: -46.6333 }; // São Paulo
 const SNAP_POINTS = ["20%", "65%"];
 const FALLBACK_SPEED_KMH = 30;
 const SEARCH_DEBOUNCE_MS = 400;
+
+function categoryIcon(key: string): string {
+  return key === "moto" ? "🏍️" : "🚗";
+}
 
 export default function PassengerHome() {
   const router = useRouter();
@@ -46,17 +49,18 @@ export default function PassengerHome() {
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selecting, setSelecting] = useState<SelectableTarget>("none");
   const [sheetIndex, setSheetIndex] = useState(0);
-  const [requesting, setRequesting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<AddressResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [resolvingPlace, setResolvingPlace] = useState(false);
   const [locatingMe, setLocatingMe] = useState(false);
 
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [route, setRoute] = useState<{ distanceKm: number; durationMin: number } | null>(null);
+  const [route, setRoute] = useState<RouteEstimate | null>(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
+  const [driverEtas, setDriverEtas] = useState<Record<string, number | null>>({});
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [applyingCoupon, setApplyingCoupon] = useState(false);
@@ -102,7 +106,7 @@ export default function PassengerHome() {
           setRoute(result);
         } else {
           const distanceKm = haversineDistanceKm(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng);
-          setRoute({ distanceKm, durationMin: (distanceKm / FALLBACK_SPEED_KMH) * 60 });
+          setRoute({ distanceKm, durationMin: (distanceKm / FALLBACK_SPEED_KMH) * 60, coordinates: [] });
         }
       })
       .finally(() => !cancelled && setLoadingRoute(false));
@@ -110,6 +114,20 @@ export default function PassengerHome() {
       cancelled = true;
     };
   }, [pickup, dropoff]);
+
+  useEffect(() => {
+    if (!pickup || categories.length === 0) return;
+    let cancelled = false;
+    categories.forEach((category) => {
+      estimateDriverEtaMinutes(category.id, pickup)
+        .then((minutes) => !cancelled && setDriverEtas((prev) => ({ ...prev, [category.id]: minutes })))
+        .catch(() => !cancelled && setDriverEtas((prev) => ({ ...prev, [category.id]: null })));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickup, categories]);
 
   useEffect(() => {
     if (selecting === "none" || !searchQuery.trim()) {
@@ -151,16 +169,26 @@ export default function PassengerHome() {
     setSheetIndex(1);
   }
 
-  function handleSelectSearchResult(result: AddressResult) {
-    if (selecting === "pickup") {
-      setPickup({ lat: result.lat, lng: result.lng });
-      setPickupLabel(result.label);
-    } else if (selecting === "dropoff") {
-      setDropoff({ lat: result.lat, lng: result.lng });
-      setDropoffLabel(result.label);
+  async function handleSelectSearchResult(result: AddressResult) {
+    setResolvingPlace(true);
+    try {
+      const point = await resolvePlaceDetails(result.placeId);
+      if (!point) {
+        Alert.alert("Endereço não encontrado", "Não conseguimos localizar esse endereço. Tente outro.");
+        return;
+      }
+      if (selecting === "pickup") {
+        setPickup(point);
+        setPickupLabel(result.label);
+      } else if (selecting === "dropoff") {
+        setDropoff(point);
+        setDropoffLabel(result.label);
+      }
+      setSearchQuery("");
+      setSearchResults([]);
+    } finally {
+      setResolvingPlace(false);
     }
-    setSearchQuery("");
-    setSearchResults([]);
   }
 
   function handleSelectSavedAddress(address: SavedAddress) {
@@ -220,31 +248,28 @@ export default function PassengerHome() {
     }
   }
 
-  async function handleRequestRide() {
-    if (!session?.user || !pickup || !dropoff || !route || !selectedCategory || finalFare == null || !paymentMethod)
-      return;
+  function handleContinue() {
+    if (!pickup || !dropoff || !route || !selectedCategory || finalFare == null || !paymentMethod) return;
 
-    setRequesting(true);
-    try {
-      const ride = await createRide({
-        passengerId: session.user.id,
+    router.push({
+      pathname: "/(passenger)/negotiate-price",
+      params: {
+        pickupLat: String(pickup.lat),
+        pickupLng: String(pickup.lng),
+        pickupLabel: pickupLabel ?? "",
+        dropoffLat: String(dropoff.lat),
+        dropoffLng: String(dropoff.lng),
+        dropoffLabel: dropoffLabel ?? "",
         categoryId: selectedCategory.id,
+        categoryLabel: selectedCategory.label,
         paymentMethod,
-        pickup,
-        dropoff,
-        distanceKm: route.distanceKm,
-        durationMin: route.durationMin,
-        fare: finalFare,
-        couponId: appliedCoupon?.couponId,
-        discountAmount: appliedCoupon?.discountAmount,
-      });
-      await createPinForRide(ride.id);
-      router.push(`/(passenger)/ride/${ride.id}`);
-    } catch (err) {
-      Alert.alert("Erro ao pedir corrida", getErrorMessage(err));
-    } finally {
-      setRequesting(false);
-    }
+        distanceKm: String(route.distanceKm),
+        durationMin: String(route.durationMin),
+        estimatedFare: String(finalFare),
+        couponId: appliedCoupon?.couponId ?? "",
+        discountAmount: String(appliedCoupon?.discountAmount ?? 0),
+      },
+    });
   }
 
   const expanded = sheetIndex === 1;
@@ -257,6 +282,7 @@ export default function PassengerHome() {
           initialCenter={center}
           pickup={pickup ? { ...pickup, gender: profile?.gender } : null}
           dropoff={dropoff}
+          route={route?.coordinates}
           selectable={selecting}
           onSelectLocation={handleSelectLocation}
         />
@@ -323,13 +349,14 @@ export default function PassengerHome() {
                   )}
                 </TouchableOpacity>
 
-                {searching && <ActivityIndicator style={{ marginVertical: 8 }} />}
+                {(searching || resolvingPlace) && <ActivityIndicator style={{ marginVertical: 8 }} />}
 
-                {searchResults.map((result, index) => (
+                {searchResults.map((result) => (
                   <TouchableOpacity
-                    key={`${result.lat}-${result.lng}-${index}`}
+                    key={result.placeId}
                     style={styles.resultRow}
                     onPress={() => handleSelectSearchResult(result)}
+                    disabled={resolvingPlace}
                   >
                     <Text style={styles.resultText}>{result.label}</Text>
                   </TouchableOpacity>
@@ -367,17 +394,22 @@ export default function PassengerHome() {
                     {categories.map((category) => {
                       const fare = estimateFareForCategory(category, route.distanceKm, route.durationMin);
                       const active = selectedCategoryId === category.id;
+                      const eta = driverEtas[category.id];
                       return (
                         <TouchableOpacity
                           key={category.id}
                           style={[styles.categoryCard, active && styles.categoryCardActive]}
                           onPress={() => handleSelectCategory(category.id)}
                         >
+                          <Text style={styles.categoryIcon}>{categoryIcon(category.key)}</Text>
                           <Text style={active ? styles.categoryLabelActive : styles.categoryLabel}>
                             {category.label}
                           </Text>
                           <Text style={active ? styles.categoryFareActive : styles.categoryFare}>
                             R$ {fare.toFixed(2)}
+                          </Text>
+                          <Text style={active ? styles.categoryMetaActive : styles.categoryMeta}>
+                            👤 {category.capacity_passengers} · {eta == null ? "Sem motoristas" : `${Math.ceil(eta)} min`}
                           </Text>
                         </TouchableOpacity>
                       );
@@ -436,12 +468,8 @@ export default function PassengerHome() {
               </>
             )}
 
-            <TouchableOpacity style={styles.requestButton} onPress={handleRequestRide} disabled={!canRequest || requesting}>
-              {requesting ? (
-                <ActivityIndicator color={colors.white} />
-              ) : (
-                <Text style={styles.requestButtonText}>Pedir corrida</Text>
-              )}
+            <TouchableOpacity style={styles.requestButton} onPress={handleContinue} disabled={!canRequest}>
+              <Text style={styles.requestButtonText}>Continuar</Text>
             </TouchableOpacity>
           </BottomSheetScrollView>
         )}
@@ -525,10 +553,13 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   categoryCardActive: { backgroundColor: colors.brandGreen, borderColor: colors.brandGreen },
+  categoryIcon: { fontSize: 22 },
   categoryLabel: { fontSize: 13, fontWeight: "600", color: colors.textPrimary },
   categoryLabelActive: { fontSize: 13, fontWeight: "700", color: colors.black },
   categoryFare: { fontSize: 15, fontWeight: "800", color: colors.textPrimary, marginTop: 4 },
   categoryFareActive: { fontSize: 15, fontWeight: "800", color: colors.black, marginTop: 4 },
+  categoryMeta: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  categoryMetaActive: { fontSize: 11, color: colors.black, marginTop: 2 },
   routeInfo: { fontSize: 12, color: colors.textSecondary },
   couponRow: { flexDirection: "row", gap: 8, marginTop: 10 },
   couponInput: {

@@ -1,4 +1,4 @@
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
+const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY;
 
 interface Point {
   lat: number;
@@ -7,50 +7,77 @@ interface Point {
 
 export interface AddressResult {
   label: string;
-  lat: number;
-  lng: number;
+  placeId: string;
 }
 
-/** Forward geocoding via Mapbox — turns a typed address into candidate points. */
+/** Google Places Autocomplete — resultados leves (sem lat/lng ainda) pra
+ * mostrar enquanto o usuário digita. Chame `resolvePlaceDetails` com o
+ * `placeId` só quando ele tocar numa sugestão específica. */
 export async function searchAddress(query: string, near?: Point): Promise<AddressResult[]> {
-  if (!MAPBOX_TOKEN || !query.trim()) return [];
+  if (!GOOGLE_MAPS_KEY || !query.trim()) return [];
 
   const params = new URLSearchParams({
-    access_token: MAPBOX_TOKEN,
-    language: "pt",
-    limit: "5",
+    input: query,
+    language: "pt-BR",
+    components: "country:br",
+    key: GOOGLE_MAPS_KEY,
   });
-  if (near) params.set("proximity", `${near.lng},${near.lat}`);
+  if (near) {
+    params.set("location", `${near.lat},${near.lng}`);
+    params.set("radius", "50000");
+  }
 
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params.toString()}`;
+  const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params.toString()}`;
 
   try {
     const res = await fetch(url);
     if (!res.ok) return [];
     const json = await res.json();
-    const features = json.features ?? [];
-    return features.map((f: { place_name: string; center: [number, number] }) => ({
-      label: f.place_name,
-      lat: f.center[1],
-      lng: f.center[0],
+    const predictions = json.predictions ?? [];
+    return predictions.map((p: { description: string; place_id: string }) => ({
+      label: p.description,
+      placeId: p.place_id,
     }));
   } catch {
     return [];
   }
 }
 
-/** Reverse geocoding via Mapbox — turns a point into a human-readable address. */
-export async function reverseGeocode(point: Point): Promise<string | null> {
-  if (!MAPBOX_TOKEN) return null;
+/** Resolve as coordenadas de uma sugestão do Places Autocomplete. */
+export async function resolvePlaceDetails(placeId: string): Promise<{ lat: number; lng: number } | null> {
+  if (!GOOGLE_MAPS_KEY) return null;
 
-  const params = new URLSearchParams({ access_token: MAPBOX_TOKEN, language: "pt", limit: "1" });
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${point.lng},${point.lat}.json?${params.toString()}`;
+  const params = new URLSearchParams({ place_id: placeId, fields: "geometry", key: GOOGLE_MAPS_KEY });
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?${params.toString()}`;
 
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const json = await res.json();
-    return json.features?.[0]?.place_name ?? null;
+    const location = json.result?.geometry?.location;
+    if (!location) return null;
+    return { lat: location.lat, lng: location.lng };
+  } catch {
+    return null;
+  }
+}
+
+/** Reverse geocoding via Google — turns a point into a human-readable address. */
+export async function reverseGeocode(point: Point): Promise<string | null> {
+  if (!GOOGLE_MAPS_KEY) return null;
+
+  const params = new URLSearchParams({
+    latlng: `${point.lat},${point.lng}`,
+    language: "pt-BR",
+    key: GOOGLE_MAPS_KEY,
+  });
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.results?.[0]?.formatted_address ?? null;
   } catch {
     return null;
   }
