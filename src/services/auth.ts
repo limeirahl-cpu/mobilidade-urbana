@@ -34,6 +34,7 @@ interface CreateProfileInput {
   fullName: string;
   phone?: string;
   vehicleInfo?: string;
+  categoryId?: string;
 }
 
 export async function createProfile(input: CreateProfileInput): Promise<Profile> {
@@ -45,6 +46,7 @@ export async function createProfile(input: CreateProfileInput): Promise<Profile>
       full_name: input.fullName,
       phone: input.phone ?? null,
       vehicle_info: input.vehicleInfo ?? null,
+      category_id: input.categoryId ?? null,
     })
     .select()
     .single();

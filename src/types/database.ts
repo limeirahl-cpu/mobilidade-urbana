@@ -8,12 +8,26 @@ export type RideStatus =
   | "completed"
   | "cancelled";
 
+export interface RideCategory {
+  id: string;
+  key: string;
+  label: string;
+  base_fare: number;
+  per_km_rate: number;
+  per_min_rate: number;
+  min_fare: number;
+  surge_multiplier: number;
+  active: boolean;
+  sort_order: number;
+}
+
 export interface Profile {
   id: string;
   role: UserRole;
   full_name: string;
   phone: string | null;
   vehicle_info: string | null;
+  category_id: string | null;
   created_at: string;
 }
 
@@ -30,6 +44,7 @@ export interface Ride {
   id: string;
   passenger_id: string;
   driver_id: string | null;
+  category_id: string;
   status: RideStatus;
   pickup_lat: number;
   pickup_lng: number;
@@ -38,6 +53,7 @@ export interface Ride {
   dropoff_lng: number;
   dropoff_address: string | null;
   estimated_distance_km: number | null;
+  estimated_duration_min: number | null;
   estimated_fare: number | null;
   requested_at: string;
   accepted_at: string | null;

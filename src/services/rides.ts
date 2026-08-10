@@ -1,35 +1,39 @@
 import { supabase } from "@/services/supabase";
 import type { Ride } from "@/types/database";
-import { estimateFare, haversineDistanceKm } from "@/utils/distance";
 
 interface Point {
   lat: number;
   lng: number;
 }
 
-export async function createRide(
-  passengerId: string,
-  pickup: Point,
-  dropoff: Point,
-  pickupAddress?: string,
-  dropoffAddress?: string
-): Promise<Ride> {
-  const distanceKm = haversineDistanceKm(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng);
-  const fare = estimateFare(distanceKm);
+interface CreateRideInput {
+  passengerId: string;
+  categoryId: string;
+  pickup: Point;
+  dropoff: Point;
+  distanceKm: number;
+  durationMin: number;
+  fare: number;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+}
 
+export async function createRide(input: CreateRideInput): Promise<Ride> {
   const { data, error } = await supabase
     .from("rides")
     .insert({
-      passenger_id: passengerId,
+      passenger_id: input.passengerId,
+      category_id: input.categoryId,
       status: "requested",
-      pickup_lat: pickup.lat,
-      pickup_lng: pickup.lng,
-      pickup_address: pickupAddress ?? null,
-      dropoff_lat: dropoff.lat,
-      dropoff_lng: dropoff.lng,
-      dropoff_address: dropoffAddress ?? null,
-      estimated_distance_km: distanceKm,
-      estimated_fare: fare,
+      pickup_lat: input.pickup.lat,
+      pickup_lng: input.pickup.lng,
+      pickup_address: input.pickupAddress ?? null,
+      dropoff_lat: input.dropoff.lat,
+      dropoff_lng: input.dropoff.lng,
+      dropoff_address: input.dropoffAddress ?? null,
+      estimated_distance_km: input.distanceKm,
+      estimated_duration_min: input.durationMin,
+      estimated_fare: input.fare,
     })
     .select()
     .single();
@@ -93,11 +97,12 @@ export async function fetchRide(rideId: string): Promise<Ride | null> {
   return data;
 }
 
-export async function fetchOpenRideRequests(): Promise<Ride[]> {
+export async function fetchOpenRideRequests(categoryId: string): Promise<Ride[]> {
   const { data, error } = await supabase
     .from("rides")
     .select("*")
     .eq("status", "requested")
+    .eq("category_id", categoryId)
     .order("requested_at", { ascending: true });
   if (error) throw error;
   return data ?? [];

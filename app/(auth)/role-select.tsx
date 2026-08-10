@@ -1,10 +1,12 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { createProfile } from "@/services/auth";
-import type { UserRole } from "@/types/database";
+import { fetchActiveCategories } from "@/services/categories";
+import { colors } from "@/theme/colors";
+import type { RideCategory, UserRole } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
 
 export default function RoleSelect() {
@@ -14,10 +16,19 @@ export default function RoleSelect() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [vehicleInfo, setVehicleInfo] = useState("");
+  const [categories, setCategories] = useState<RideCategory[]>([]);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchActiveCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, []);
 
   async function handleSubmit() {
     if (!session?.user || !role || !fullName.trim()) return;
+    if (role === "driver" && !categoryId) return;
     setSubmitting(true);
     try {
       await createProfile({
@@ -26,6 +37,7 @@ export default function RoleSelect() {
         fullName: fullName.trim(),
         phone: phone.trim() || undefined,
         vehicleInfo: role === "driver" ? vehicleInfo.trim() || undefined : undefined,
+        categoryId: role === "driver" ? categoryId ?? undefined : undefined,
       });
       await refreshProfile();
       router.replace("/");
@@ -70,20 +82,37 @@ export default function RoleSelect() {
       </View>
 
       {role === "driver" && (
-        <TextInput
-          style={styles.input}
-          placeholder="Veículo (ex: Onix prata, placa ABC1D23)"
-          value={vehicleInfo}
-          onChangeText={setVehicleInfo}
-        />
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="Veículo (ex: Onix prata, placa ABC1D23)"
+            value={vehicleInfo}
+            onChangeText={setVehicleInfo}
+          />
+
+          <Text style={styles.sectionLabel}>Categoria do veículo</Text>
+          <View style={styles.categoryRow}>
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                style={[styles.categoryChip, categoryId === category.id && styles.categoryChipActive]}
+                onPress={() => setCategoryId(category.id)}
+              >
+                <Text style={categoryId === category.id ? styles.categoryTextActive : styles.categoryText}>
+                  {category.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
       )}
 
       <TouchableOpacity
         style={styles.button}
         onPress={handleSubmit}
-        disabled={submitting || !role || !fullName.trim()}
+        disabled={submitting || !role || !fullName.trim() || (role === "driver" && !categoryId)}
       >
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}
+        {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Continuar</Text>}
       </TouchableOpacity>
     </View>
   );
@@ -92,19 +121,31 @@ export default function RoleSelect() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
   title: { fontSize: 24, fontWeight: "700", marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16 },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16 },
   roleRow: { flexDirection: "row", gap: 12, marginTop: 8 },
   roleButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
   },
-  roleButtonActive: { backgroundColor: "#111", borderColor: "#111" },
-  roleText: { color: "#111", fontWeight: "600" },
-  roleTextActive: { color: "#fff", fontWeight: "600" },
-  button: { backgroundColor: "#111", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  roleButtonActive: { backgroundColor: colors.black, borderColor: colors.black },
+  roleText: { color: colors.black, fontWeight: "600" },
+  roleTextActive: { color: colors.white, fontWeight: "600" },
+  sectionLabel: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  categoryRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
+  categoryChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  categoryChipActive: { backgroundColor: colors.brandYellow, borderColor: colors.brandYellow },
+  categoryText: { color: colors.black, fontWeight: "600" },
+  categoryTextActive: { color: colors.black, fontWeight: "700" },
+  button: { backgroundColor: colors.black, borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
+  buttonText: { color: colors.white, fontSize: 16, fontWeight: "600" },
 });

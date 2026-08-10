@@ -19,6 +19,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de um proved
    - [`supabase/migrations/0002_rls_policies.sql`](supabase/migrations/0002_rls_policies.sql)
    - [`supabase/migrations/0003_realtime_publication.sql`](supabase/migrations/0003_realtime_publication.sql)
    - [`supabase/migrations/0004_fix_profiles_rides_rls_recursion.sql`](supabase/migrations/0004_fix_profiles_rides_rls_recursion.sql)
+   - [`supabase/migrations/0005_ride_categories.sql`](supabase/migrations/0005_ride_categories.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -64,9 +65,9 @@ Vai aparecer um QR code. Abra o app **Expo Go** (Android/iOS, disponível na loj
 Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo tempo (ex: seu celular com Expo Go + um simulador, ou dois simuladores):
 
 1. **Dispositivo A**: cadastre-se, escolha "Sou passageiro".
-2. **Dispositivo B**: cadastre-se, escolha "Sou motorista", preencha o veículo, e ative o toggle **Online**.
-3. **A**: marque o ponto de embarque e destino no mapa, veja a tarifa estimada, toque em "Pedir corrida".
-4. **B**: a corrida deve aparecer na lista em poucos segundos — toque em "Aceitar".
+2. **Dispositivo B**: cadastre-se, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico), e ative o toggle **Online**.
+3. **A**: toque em "Para onde vamos?", marque o destino no mapa, escolha uma categoria entre os cartões de preço, toque em "Pedir corrida" — se marcar uma categoria diferente da que o motorista B escolheu (ex: passageiro pede Moto, motorista está em Econômico), B não deve ver a corrida.
+4. **B**: a corrida deve aparecer no cartão em poucos segundos — toque em "Aceitar".
 5. **A**: a tela deve mostrar o motorista atribuído.
 6. Para simular o motorista se movendo (sem GPS real): no simulador iOS, vá em **Features → Location**; no Android, use os **Extended Controls → Location** e mova o ponto ou rode uma rota. O marcador azul no dispositivo A deve se mover em tempo real.
 7. **B**: avance a corrida pelos botões ("Seguir para o embarque" → "Iniciar corrida" → "Concluir corrida").

@@ -4,18 +4,18 @@ import { supabase } from "@/services/supabase";
 import { fetchOpenRideRequests } from "@/services/rides";
 import type { Ride } from "@/types/database";
 
-/** Live list of open (`status='requested'`) rides, for a driver browsing the pool. */
-export function useIncomingRideRequests(enabled: boolean) {
+/** Live list of open (`status='requested'`) rides in the driver's own category, for a driver browsing the pool. */
+export function useIncomingRideRequests(enabled: boolean, categoryId: string | null) {
   const [requests, setRequests] = useState<Ride[]>([]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !categoryId) {
       setRequests([]);
       return;
     }
 
     let cancelled = false;
-    fetchOpenRideRequests().then((rides) => {
+    fetchOpenRideRequests(categoryId).then((rides) => {
       if (!cancelled) setRequests(rides);
     });
 
@@ -26,6 +26,7 @@ export function useIncomingRideRequests(enabled: boolean) {
         { event: "INSERT", schema: "public", table: "rides", filter: "status=eq.requested" },
         (payload) => {
           const ride = payload.new as Ride;
+          if (ride.category_id !== categoryId) return;
           setRequests((prev) => (prev.some((r) => r.id === ride.id) ? prev : [...prev, ride]));
         }
       )
@@ -46,7 +47,7 @@ export function useIncomingRideRequests(enabled: boolean) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [enabled]);
+  }, [enabled, categoryId]);
 
   return requests;
 }

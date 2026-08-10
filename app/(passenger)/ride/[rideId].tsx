@@ -10,9 +10,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDriverStatus } from "@/hooks/useDriverStatus";
 import { useRide } from "@/hooks/useRide";
 import { fetchProfile } from "@/services/auth";
+import { fetchCategoryById } from "@/services/categories";
 import { cancelRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
-import type { Profile } from "@/types/database";
+import type { Profile, RideCategory } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
 
 const SNAP_POINTS = ["32%", "55%"];
@@ -24,6 +25,7 @@ export default function PassengerRideScreen() {
   const { ride, loading } = useRide(rideId ?? null);
   const driverStatus = useDriverStatus(ride?.driver_id ?? null);
   const [driverProfile, setDriverProfile] = useState<Profile | null>(null);
+  const [category, setCategory] = useState<RideCategory | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
 
   useEffect(() => {
@@ -31,6 +33,12 @@ export default function PassengerRideScreen() {
       fetchProfile(ride.driver_id).then(setDriverProfile).catch(() => setDriverProfile(null));
     }
   }, [ride?.driver_id]);
+
+  useEffect(() => {
+    if (ride?.category_id) {
+      fetchCategoryById(ride.category_id).then(setCategory).catch(() => setCategory(null));
+    }
+  }, [ride?.category_id]);
 
   async function handleCancel() {
     if (!ride || !session?.user) return;
@@ -68,6 +76,7 @@ export default function PassengerRideScreen() {
 
       <RideBottomSheet index={sheetIndex} snapPoints={SNAP_POINTS} onChangeIndex={setSheetIndex}>
         <RideStatusBanner status={ride.status} />
+        {category && <Text style={styles.categoryBadge}>{category.label}</Text>}
 
         {driverProfile &&
           (ride.status === "accepted" || ride.status === "arriving" || ride.status === "in_progress") && (
@@ -122,6 +131,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandYellow,
     alignItems: "center",
     justifyContent: "center",
+  },
+  categoryBadge: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.black,
+    backgroundColor: colors.brandYellow,
+    alignSelf: "flex-start",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   driverInitial: { fontSize: 18, fontWeight: "800", color: colors.black },
   driverName: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },

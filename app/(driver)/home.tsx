@@ -26,7 +26,7 @@ export default function DriverHome() {
   const status = useDriverStatus(driverId);
   const isOnline = status?.is_online ?? false;
   useDriverLocation(driverId, isOnline);
-  const requests = useIncomingRideRequests(isOnline);
+  const requests = useIncomingRideRequests(isOnline, profile?.category_id ?? null);
   const [center, setCenter] = useState<LatLng>(FALLBACK_CENTER);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);

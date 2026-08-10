@@ -1,20 +1,31 @@
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { MapWebView, type LatLng, type SelectableTarget } from "@/components/map/MapWebView";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
-import { FareEstimate } from "@/components/ride/FareEstimate";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOut } from "@/services/auth";
+import { fetchActiveCategories } from "@/services/categories";
+import { getRoute } from "@/services/directions";
 import { createRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
-import { estimateFare, haversineDistanceKm } from "@/utils/distance";
+import type { RideCategory } from "@/types/database";
+import { estimateFareForCategory, haversineDistanceKm } from "@/utils/distance";
 import { getErrorMessage } from "@/utils/errors";
 
 const FALLBACK_CENTER: LatLng = { lat: -23.5505, lng: -46.6333 }; // São Paulo
-const SNAP_POINTS = ["20%", "50%"];
+const SNAP_POINTS = ["20%", "55%"];
+const FALLBACK_SPEED_KMH = 30;
 
 export default function PassengerHome() {
   const router = useRouter();
@@ -25,6 +36,11 @@ export default function PassengerHome() {
   const [selecting, setSelecting] = useState<SelectableTarget>("none");
   const [sheetIndex, setSheetIndex] = useState(0);
   const [requesting, setRequesting] = useState(false);
+
+  const [categories, setCategories] = useState<RideCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [route, setRoute] = useState<{ distanceKm: number; durationMin: number } | null>(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -37,6 +53,35 @@ export default function PassengerHome() {
     })();
   }, []);
 
+  useEffect(() => {
+    fetchActiveCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, []);
+
+  useEffect(() => {
+    if (!pickup || !dropoff) {
+      setRoute(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingRoute(true);
+    getRoute(pickup, dropoff)
+      .then((result) => {
+        if (cancelled) return;
+        if (result) {
+          setRoute(result);
+        } else {
+          const distanceKm = haversineDistanceKm(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng);
+          setRoute({ distanceKm, durationMin: (distanceKm / FALLBACK_SPEED_KMH) * 60 });
+        }
+      })
+      .finally(() => !cancelled && setLoadingRoute(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [pickup, dropoff]);
+
   function handleSelectLocation(point: LatLng) {
     if (selecting === "pickup") setPickup(point);
     else if (selecting === "dropoff") setDropoff(point);
@@ -48,10 +93,22 @@ export default function PassengerHome() {
   }
 
   async function handleRequestRide() {
-    if (!session?.user || !pickup || !dropoff) return;
+    if (!session?.user || !pickup || !dropoff || !route || !selectedCategoryId) return;
+    const category = categories.find((c) => c.id === selectedCategoryId);
+    if (!category) return;
+
     setRequesting(true);
     try {
-      const ride = await createRide(session.user.id, pickup, dropoff);
+      const fare = estimateFareForCategory(category, route.distanceKm, route.durationMin);
+      const ride = await createRide({
+        passengerId: session.user.id,
+        categoryId: category.id,
+        pickup,
+        dropoff,
+        distanceKm: route.distanceKm,
+        durationMin: route.durationMin,
+        fare,
+      });
       router.push(`/(passenger)/ride/${ride.id}`);
     } catch (err) {
       Alert.alert("Erro ao pedir corrida", getErrorMessage(err));
@@ -60,8 +117,8 @@ export default function PassengerHome() {
     }
   }
 
-  const distanceKm = pickup && dropoff ? haversineDistanceKm(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng) : null;
   const expanded = sheetIndex === 1;
+  const canRequest = !!pickup && !!dropoff && !!route && !!selectedCategoryId;
 
   return (
     <View style={styles.container}>
@@ -107,13 +164,42 @@ export default function PassengerHome() {
               </Text>
             </TouchableOpacity>
 
-            {distanceKm !== null && <FareEstimate distanceKm={distanceKm} fare={estimateFare(distanceKm)} />}
+            {pickup && dropoff && (
+              <>
+                <Text style={styles.sectionLabel}>Escolha a categoria</Text>
+                {loadingRoute || !route ? (
+                  <ActivityIndicator style={{ marginVertical: 12 }} />
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>
+                    {categories.map((category) => {
+                      const fare = estimateFareForCategory(category, route.distanceKm, route.durationMin);
+                      const active = selectedCategoryId === category.id;
+                      return (
+                        <TouchableOpacity
+                          key={category.id}
+                          style={[styles.categoryCard, active && styles.categoryCardActive]}
+                          onPress={() => setSelectedCategoryId(category.id)}
+                        >
+                          <Text style={active ? styles.categoryLabelActive : styles.categoryLabel}>
+                            {category.label}
+                          </Text>
+                          <Text style={active ? styles.categoryFareActive : styles.categoryFare}>
+                            R$ {fare.toFixed(2)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+                {route && (
+                  <Text style={styles.routeInfo}>
+                    {route.distanceKm.toFixed(1)} km · {Math.round(route.durationMin)} min
+                  </Text>
+                )}
+              </>
+            )}
 
-            <TouchableOpacity
-              style={styles.requestButton}
-              onPress={handleRequestRide}
-              disabled={!pickup || !dropoff || requesting}
-            >
+            <TouchableOpacity style={styles.requestButton} onPress={handleRequestRide} disabled={!canRequest || requesting}>
               {requesting ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
@@ -167,6 +253,23 @@ const styles = StyleSheet.create({
   addressRowActive: { borderColor: colors.brandYellow, backgroundColor: "#FFFBEB" },
   addressDot: { width: 10, height: 10, borderRadius: 5 },
   addressText: { fontSize: 14, color: colors.textPrimary, flex: 1 },
+  sectionLabel: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  categoryList: { gap: 10, paddingVertical: 4 },
+  categoryCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    minWidth: 100,
+  },
+  categoryCardActive: { backgroundColor: colors.brandYellow, borderColor: colors.brandYellow },
+  categoryLabel: { fontSize: 13, fontWeight: "600", color: colors.textPrimary },
+  categoryLabelActive: { fontSize: 13, fontWeight: "700", color: colors.black },
+  categoryFare: { fontSize: 15, fontWeight: "800", color: colors.textPrimary, marginTop: 4 },
+  categoryFareActive: { fontSize: 15, fontWeight: "800", color: colors.black, marginTop: 4 },
+  routeInfo: { fontSize: 12, color: colors.textSecondary },
   requestButton: { backgroundColor: colors.black, borderRadius: 12, padding: 16, alignItems: "center" },
   requestButtonText: { color: colors.white, fontSize: 16, fontWeight: "800" },
 });

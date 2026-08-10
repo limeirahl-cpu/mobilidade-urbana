@@ -1,4 +1,4 @@
-import { BASE_FARE, MINIMUM_FARE, PER_KM_RATE } from "./constants";
+import type { RideCategory } from "@/types/database";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -21,7 +21,13 @@ function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
-export function estimateFare(distanceKm: number): number {
-  const fare = BASE_FARE + distanceKm * PER_KM_RATE;
-  return Math.max(fare, MINIMUM_FARE);
+export function estimateFareForCategory(
+  category: RideCategory,
+  distanceKm: number,
+  durationMin: number
+): number {
+  const fare =
+    (category.base_fare + distanceKm * category.per_km_rate + durationMin * category.per_min_rate) *
+    category.surge_multiplier;
+  return Math.max(fare, category.min_fare);
 }
