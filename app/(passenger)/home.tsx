@@ -3,15 +3,18 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { FareEstimate } from "@/components/ride/FareEstimate";
 import { MapWebView, type LatLng, type SelectableTarget } from "@/components/map/MapWebView";
+import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
+import { FareEstimate } from "@/components/ride/FareEstimate";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOut } from "@/services/auth";
 import { createRide } from "@/services/rides";
+import { colors } from "@/theme/colors";
 import { estimateFare, haversineDistanceKm } from "@/utils/distance";
 import { getErrorMessage } from "@/utils/errors";
 
 const FALLBACK_CENTER: LatLng = { lat: -23.5505, lng: -46.6333 }; // São Paulo
+const SNAP_POINTS = ["20%", "50%"];
 
 export default function PassengerHome() {
   const router = useRouter();
@@ -19,7 +22,8 @@ export default function PassengerHome() {
   const [center, setCenter] = useState<LatLng>(FALLBACK_CENTER);
   const [pickup, setPickup] = useState<LatLng | null>(null);
   const [dropoff, setDropoff] = useState<LatLng | null>(null);
-  const [selecting, setSelecting] = useState<SelectableTarget>("pickup");
+  const [selecting, setSelecting] = useState<SelectableTarget>("none");
+  const [sheetIndex, setSheetIndex] = useState(0);
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
@@ -38,6 +42,11 @@ export default function PassengerHome() {
     else if (selecting === "dropoff") setDropoff(point);
   }
 
+  function openDestinationPicker() {
+    setSelecting("dropoff");
+    setSheetIndex(1);
+  }
+
   async function handleRequestRide() {
     if (!session?.user || !pickup || !dropoff) return;
     setRequesting(true);
@@ -52,17 +61,11 @@ export default function PassengerHome() {
   }
 
   const distanceKm = pickup && dropoff ? haversineDistanceKm(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng) : null;
+  const expanded = sheetIndex === 1;
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Para onde vamos?</Text>
-        <TouchableOpacity onPress={() => signOut()}>
-          <Text style={styles.signOut}>Sair</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.mapContainer}>
+      <View style={StyleSheet.absoluteFillObject}>
         <MapWebView
           initialCenter={center}
           pickup={pickup}
@@ -72,64 +75,98 @@ export default function PassengerHome() {
         />
       </View>
 
-      <View style={styles.controls}>
-        <View style={styles.toggleRow}>
-          <TouchableOpacity
-            style={[styles.toggleButton, selecting === "pickup" && styles.toggleButtonActive]}
-            onPress={() => setSelecting("pickup")}
-          >
-            <Text style={selecting === "pickup" ? styles.toggleTextActive : styles.toggleText}>
-              {pickup ? "✓ " : ""}Embarque
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleButton, selecting === "dropoff" && styles.toggleButtonActive]}
-            onPress={() => setSelecting("dropoff")}
-          >
-            <Text style={selecting === "dropoff" ? styles.toggleTextActive : styles.toggleText}>
-              {dropoff ? "✓ " : ""}Destino
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.hint}>Toque no mapa para marcar o ponto selecionado acima.</Text>
+      <TouchableOpacity style={styles.signOutButton} onPress={() => signOut()}>
+        <Text style={styles.signOutText}>Sair</Text>
+      </TouchableOpacity>
 
-        {distanceKm !== null && <FareEstimate distanceKm={distanceKm} fare={estimateFare(distanceKm)} />}
+      <RideBottomSheet index={sheetIndex} snapPoints={SNAP_POINTS} onChangeIndex={setSheetIndex}>
+        {!expanded ? (
+          <TouchableOpacity style={styles.searchBar} onPress={openDestinationPicker}>
+            <View style={styles.searchDot} />
+            <Text style={styles.searchPlaceholder}>Para onde vamos?</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <Text style={styles.sheetTitle}>Para onde vamos?</Text>
 
-        <TouchableOpacity
-          style={styles.requestButton}
-          onPress={handleRequestRide}
-          disabled={!pickup || !dropoff || requesting}
-        >
-          {requesting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.requestButtonText}>Pedir corrida</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity
+              style={[styles.addressRow, selecting === "pickup" && styles.addressRowActive]}
+              onPress={() => setSelecting("pickup")}
+            >
+              <View style={[styles.addressDot, { backgroundColor: colors.success }]} />
+              <Text style={styles.addressText}>{pickup ? "Sua localização atual" : "Definindo embarque..."}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.addressRow, selecting === "dropoff" && styles.addressRowActive]}
+              onPress={() => setSelecting("dropoff")}
+            >
+              <View style={[styles.addressDot, { backgroundColor: colors.danger }]} />
+              <Text style={styles.addressText}>
+                {dropoff ? `${dropoff.lat.toFixed(4)}, ${dropoff.lng.toFixed(4)}` : "Toque no mapa para marcar o destino"}
+              </Text>
+            </TouchableOpacity>
+
+            {distanceKm !== null && <FareEstimate distanceKm={distanceKm} fare={estimateFare(distanceKm)} />}
+
+            <TouchableOpacity
+              style={styles.requestButton}
+              onPress={handleRequestRide}
+              disabled={!pickup || !dropoff || requesting}
+            >
+              {requesting ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.requestButtonText}>Pedir corrida</Text>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
+      </RideBottomSheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    paddingTop: 56,
+  signOutButton: {
+    position: "absolute",
+    top: 56,
+    right: 16,
+    backgroundColor: colors.white,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
   },
-  title: { fontSize: 22, fontWeight: "700" },
-  signOut: { color: "#dc2626", fontWeight: "600" },
-  mapContainer: { flex: 1 },
-  controls: { padding: 16, gap: 10 },
-  toggleRow: { flexDirection: "row", gap: 10 },
-  toggleButton: { flex: 1, borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, alignItems: "center" },
-  toggleButtonActive: { backgroundColor: "#111", borderColor: "#111" },
-  toggleText: { color: "#111", fontWeight: "600" },
-  toggleTextActive: { color: "#fff", fontWeight: "600" },
-  hint: { fontSize: 12, color: "#6b7280" },
-  requestButton: { backgroundColor: "#111", borderRadius: 8, padding: 16, alignItems: "center" },
-  requestButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  signOutText: { color: colors.danger, fontWeight: "700" },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  searchDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.black },
+  searchPlaceholder: { fontSize: 16, fontWeight: "600", color: colors.textPrimary },
+  sheetTitle: { fontSize: 20, fontWeight: "800", color: colors.textPrimary },
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addressRowActive: { borderColor: colors.brandYellow, backgroundColor: "#FFFBEB" },
+  addressDot: { width: 10, height: 10, borderRadius: 5 },
+  addressText: { fontSize: 14, color: colors.textPrimary, flex: 1 },
+  requestButton: { backgroundColor: colors.black, borderRadius: 12, padding: 16, alignItems: "center" },
+  requestButtonText: { color: colors.white, fontSize: 16, fontWeight: "800" },
 });

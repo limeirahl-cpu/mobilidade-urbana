@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { colors } from "@/theme/colors";
 import type { RideStatus } from "@/types/database";
 
 const LABELS: Record<RideStatus, string> = {
@@ -11,24 +12,25 @@ const LABELS: Record<RideStatus, string> = {
   cancelled: "Corrida cancelada",
 };
 
-const COLORS: Record<RideStatus, string> = {
-  requested: "#f59e0b",
-  accepted: "#2563eb",
-  arriving: "#2563eb",
-  in_progress: "#16a34a",
-  completed: "#111827",
-  cancelled: "#dc2626",
+const STYLE_BY_STATUS: Record<RideStatus, { bg: string; fg: string }> = {
+  requested: { bg: colors.brandYellow, fg: colors.black },
+  accepted: { bg: colors.black, fg: colors.white },
+  arriving: { bg: colors.black, fg: colors.white },
+  in_progress: { bg: colors.success, fg: colors.white },
+  completed: { bg: colors.surface, fg: colors.textPrimary },
+  cancelled: { bg: colors.danger, fg: colors.white },
 };
 
 export function RideStatusBanner({ status }: { status: RideStatus }) {
+  const { bg, fg } = STYLE_BY_STATUS[status];
   return (
-    <View style={[styles.banner, { backgroundColor: COLORS[status] }]}>
-      <Text style={styles.text}>{LABELS[status]}</Text>
+    <View style={[styles.banner, { backgroundColor: bg }]}>
+      <Text style={[styles.text, { color: fg }]}>{LABELS[status]}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: { padding: 14, borderRadius: 10 },
-  text: { color: "#fff", fontWeight: "700", fontSize: 16, textAlign: "center" },
+  banner: { padding: 14, borderRadius: 12 },
+  text: { fontWeight: "700", fontSize: 16, textAlign: "center" },
 });

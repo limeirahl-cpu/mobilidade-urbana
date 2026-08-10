@@ -1,19 +1,25 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { MapWebView } from "@/components/map/MapWebView";
+import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
 import { FareEstimate } from "@/components/ride/FareEstimate";
 import { RideStatusBanner } from "@/components/ride/RideStatusBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRide } from "@/hooks/useRide";
 import { cancelRide, completeRide, startHeadingToPickup, startRide } from "@/services/rides";
+import { colors } from "@/theme/colors";
 import { getErrorMessage } from "@/utils/errors";
+
+const SNAP_POINTS = ["30%", "50%"];
 
 export default function DriverRideScreen() {
   const { rideId } = useLocalSearchParams<{ rideId: string }>();
   const router = useRouter();
   const { session } = useAuth();
   const { ride, loading } = useRide(rideId ?? null);
+  const [sheetIndex, setSheetIndex] = useState(0);
 
   async function guard(action: () => Promise<void>) {
     try {
@@ -33,7 +39,7 @@ export default function DriverRideScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.mapContainer}>
+      <View style={StyleSheet.absoluteFillObject}>
         <MapWebView
           initialCenter={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
           pickup={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
@@ -42,7 +48,7 @@ export default function DriverRideScreen() {
         />
       </View>
 
-      <View style={styles.panel}>
+      <RideBottomSheet index={sheetIndex} snapPoints={SNAP_POINTS} onChangeIndex={setSheetIndex}>
         <RideStatusBanner status={ride.status} />
 
         {ride.estimated_distance_km != null && ride.estimated_fare != null && (
@@ -84,7 +90,7 @@ export default function DriverRideScreen() {
             <Text style={styles.doneText}>Voltar ao início</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </RideBottomSheet>
     </View>
   );
 }
@@ -92,12 +98,10 @@ export default function DriverRideScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  mapContainer: { flex: 1 },
-  panel: { padding: 16, gap: 12 },
-  primaryButton: { backgroundColor: "#111", borderRadius: 8, padding: 16, alignItems: "center" },
-  primaryText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  cancelButton: { borderWidth: 1, borderColor: "#dc2626", borderRadius: 8, padding: 14, alignItems: "center" },
-  cancelText: { color: "#dc2626", fontWeight: "700" },
-  doneButton: { backgroundColor: "#111", borderRadius: 8, padding: 14, alignItems: "center" },
-  doneText: { color: "#fff", fontWeight: "700" },
+  primaryButton: { backgroundColor: colors.brandYellow, borderRadius: 12, padding: 16, alignItems: "center" },
+  primaryText: { color: colors.black, fontWeight: "800", fontSize: 16 },
+  cancelButton: { borderWidth: 1, borderColor: colors.danger, borderRadius: 12, padding: 14, alignItems: "center" },
+  cancelText: { color: colors.danger, fontWeight: "700" },
+  doneButton: { backgroundColor: colors.black, borderRadius: 12, padding: 14, alignItems: "center" },
+  doneText: { color: colors.white, fontWeight: "700" },
 });

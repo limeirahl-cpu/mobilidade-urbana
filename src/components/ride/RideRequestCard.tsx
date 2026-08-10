@@ -1,5 +1,6 @@
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { colors } from "@/theme/colors";
 import type { Ride } from "@/types/database";
 
 export function RideRequestCard({
@@ -25,16 +26,26 @@ export function RideRequestCard({
         </Text>
       )}
       <TouchableOpacity style={styles.acceptButton} onPress={onAccept} disabled={accepting}>
-        {accepting ? <ActivityIndicator color="#fff" /> : <Text style={styles.acceptText}>Aceitar</Text>}
+        {accepting ? (
+          <ActivityIndicator color={colors.black} />
+        ) : (
+          <Text style={styles.acceptText}>Aceitar</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 14, backgroundColor: "#f9fafb", borderRadius: 10, gap: 4, borderWidth: 1, borderColor: "#e5e7eb" },
-  label: { fontSize: 13, color: "#374151" },
-  fare: { fontSize: 16, fontWeight: "700", marginTop: 4 },
-  acceptButton: { backgroundColor: "#111", borderRadius: 8, padding: 10, alignItems: "center", marginTop: 8 },
-  acceptText: { color: "#fff", fontWeight: "700" },
+  card: { padding: 16, backgroundColor: colors.surface, borderRadius: 12, gap: 4 },
+  label: { fontSize: 13, color: colors.textSecondary },
+  fare: { fontSize: 18, fontWeight: "800", color: colors.textPrimary, marginTop: 4 },
+  acceptButton: {
+    backgroundColor: colors.brandYellow,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  acceptText: { color: colors.black, fontWeight: "800", fontSize: 16 },
 });
