@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
@@ -7,14 +7,15 @@ import { createProfile } from "@/services/auth";
 import { fetchActiveCategories } from "@/services/categories";
 import { colors } from "@/theme/colors";
 import type { Gender, RideCategory, UserRole } from "@/types/database";
+import { formatE164BRForDisplay } from "@/utils/phone";
 import { getErrorMessage } from "@/utils/errors";
 
 export default function RoleSelect() {
   const router = useRouter();
+  const { phone } = useLocalSearchParams<{ phone?: string }>();
   const { session, refreshProfile } = useAuth();
   const [role, setRole] = useState<UserRole | null>(null);
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
   const [vehicleInfo, setVehicleInfo] = useState("");
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export default function RoleSelect() {
         id: session.user.id,
         role,
         fullName: fullName.trim(),
-        phone: phone.trim() || undefined,
+        phone: phone || undefined,
         vehicleInfo: role === "driver" ? vehicleInfo.trim() || undefined : undefined,
         categoryId: role === "driver" ? categoryId ?? undefined : undefined,
         gender: role === "passenger" ? gender ?? undefined : undefined,
@@ -61,13 +62,12 @@ export default function RoleSelect() {
         value={fullName}
         onChangeText={setFullName}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Telefone (opcional)"
-        keyboardType="phone-pad"
-        value={phone}
-        onChangeText={setPhone}
-      />
+      {phone && (
+        <View style={styles.phoneRow}>
+          <Text style={styles.phoneText}>{formatE164BRForDisplay(phone)}</Text>
+          <Text style={styles.phoneVerifiedBadge}>✓ Verificado</Text>
+        </View>
+      )}
 
       <View style={styles.roleRow}>
         <TouchableOpacity
@@ -151,6 +151,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
   title: { fontSize: 24, fontWeight: "700", marginBottom: 16 },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16 },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: 12,
+  },
+  phoneText: { fontSize: 16, fontWeight: "600", color: colors.textPrimary },
+  phoneVerifiedBadge: { fontSize: 12, fontWeight: "700", color: colors.success },
   roleRow: { flexDirection: "row", gap: 12, marginTop: 8 },
   roleButton: {
     flex: 1,

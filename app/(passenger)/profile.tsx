@@ -29,6 +29,14 @@ export default function PassengerProfile() {
             <Text style={styles.menuText}>Motoristas favoritos</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push("/(passenger)/payment-methods")}>
+            <Text style={styles.menuText}>Métodos de pagamento</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push("/(passenger)/history")}>
+            <Text style={styles.menuText}>Histórico de corridas</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

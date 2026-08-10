@@ -27,12 +27,38 @@ export interface Profile {
   role: UserRole;
   full_name: string;
   phone: string | null;
+  phone_verified: boolean;
+  email: string | null;
   vehicle_info: string | null;
   category_id: string | null;
   gender: Gender | null;
   rating_avg: number | null;
   rating_count: number;
   avatar_url: string | null;
+  created_at: string;
+}
+
+export type SavedPaymentMethodType = "cartao" | "pix";
+
+export interface CardPaymentData {
+  last4: string;
+  brand: string;
+  expiryMonth: number;
+  expiryYear: number;
+  holderName: string;
+}
+
+export interface PixPaymentData {
+  key: string;
+  keyType?: "cpf" | "email" | "telefone" | "aleatoria";
+}
+
+export interface SavedPaymentMethod {
+  id: string;
+  user_id: string;
+  type: SavedPaymentMethodType;
+  data: CardPaymentData | PixPaymentData;
+  is_default: boolean;
   created_at: string;
 }
 

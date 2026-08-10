@@ -11,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.pedrolimeira.urbix",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -32,6 +33,13 @@
           "backgroundColor": "#FFFFFF"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7e71ef86-b48c-4e05-a2b5-485aa1e6766e"
+      }
+    },
+    "owner": "pedrolimeira"
   }
 }

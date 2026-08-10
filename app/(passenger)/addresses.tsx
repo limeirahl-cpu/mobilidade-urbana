@@ -64,9 +64,7 @@ export default function SavedAddresses() {
             <View style={styles.card}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>{item.label}</Text>
-                <Text style={styles.coords}>
-                  {item.lat.toFixed(4)}, {item.lng.toFixed(4)}
-                </Text>
+                <Text style={styles.coords}>{item.address_text ?? `${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}`}</Text>
               </View>
               <TouchableOpacity onPress={() => handleDelete(item.id)}>
                 <Text style={styles.remove}>Remover</Text>

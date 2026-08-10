@@ -18,11 +18,12 @@ import { fetchActiveCategories } from "@/services/categories";
 import { colors } from "@/theme/colors";
 import type { Gender, RideCategory } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
+import { formatE164BRForDisplay } from "@/utils/phone";
 
 export function ProfileEditor() {
   const { session, profile, refreshProfile } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
-  const [phone, setPhone] = useState(profile?.phone ?? "");
+  const [email, setEmail] = useState(profile?.email ?? "");
   const [categoryId, setCategoryId] = useState(profile?.category_id ?? null);
   const [gender, setGender] = useState<Gender | null>(profile?.gender ?? null);
   const [categories, setCategories] = useState<RideCategory[]>([]);
@@ -71,7 +72,7 @@ export function ProfileEditor() {
     try {
       await updateProfile(session.user.id, {
         fullName: fullName.trim(),
-        phone: phone.trim(),
+        email: email.trim(),
         ...(categoryId ? { categoryId } : {}),
         ...(gender ? { gender } : {}),
       });
@@ -111,12 +112,21 @@ export function ProfileEditor() {
       )}
 
       <TextInput style={styles.input} placeholder="Nome completo" value={fullName} onChangeText={setFullName} />
+
+      {profile.phone && (
+        <View style={styles.phoneRow}>
+          <Text style={styles.phoneText}>{formatE164BRForDisplay(profile.phone)}</Text>
+          {profile.phone_verified && <Text style={styles.phoneVerifiedBadge}>✓ Verificado</Text>}
+        </View>
+      )}
+
       <TextInput
         style={styles.input}
-        placeholder="Telefone"
-        keyboardType="phone-pad"
-        value={phone}
-        onChangeText={setPhone}
+        placeholder="E-mail (opcional)"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
       />
 
       {profile.role === "passenger" && (
@@ -184,6 +194,16 @@ const styles = StyleSheet.create({
   avatarHint: { fontSize: 12, color: colors.textSecondary },
   rating: { textAlign: "center", fontWeight: "700", color: colors.textPrimary },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16 },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: 12,
+  },
+  phoneText: { fontSize: 16, fontWeight: "600", color: colors.textPrimary },
+  phoneVerifiedBadge: { fontSize: 12, fontWeight: "700", color: colors.success },
   sectionLabel: { fontSize: 13, color: colors.textSecondary },
   categoryRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   categoryChip: { borderWidth: 1, borderColor: colors.border, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 16 },
