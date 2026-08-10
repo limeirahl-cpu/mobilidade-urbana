@@ -85,6 +85,7 @@ export interface Ride {
   estimated_fare: number | null;
   coupon_id: string | null;
   discount_amount: number | null;
+  payment_method: string | null;
   requested_at: string;
   accepted_at: string | null;
   started_at: string | null;

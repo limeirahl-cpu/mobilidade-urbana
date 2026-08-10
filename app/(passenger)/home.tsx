@@ -1,3 +1,4 @@
+import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -20,28 +21,37 @@ import { signOut } from "@/services/auth";
 import { fetchActiveCategories } from "@/services/categories";
 import { applyCoupon, type AppliedCoupon } from "@/services/coupons";
 import { getRoute } from "@/services/directions";
+import { searchAddress, type AddressResult } from "@/services/geocoding";
 import { createPinForRide } from "@/services/ridePin";
 import { createRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
 import type { RideCategory, SavedAddress } from "@/types/database";
 import { estimateFareForCategory, haversineDistanceKm } from "@/utils/distance";
 import { getErrorMessage } from "@/utils/errors";
+import { PAYMENT_METHODS } from "@/utils/paymentMethods";
 
 const FALLBACK_CENTER: LatLng = { lat: -23.5505, lng: -46.6333 }; // São Paulo
-const SNAP_POINTS = ["20%", "55%"];
+const SNAP_POINTS = ["20%", "65%"];
 const FALLBACK_SPEED_KMH = 30;
+const SEARCH_DEBOUNCE_MS = 400;
 
 export default function PassengerHome() {
   const router = useRouter();
   const { session } = useAuth();
   const [center, setCenter] = useState<LatLng>(FALLBACK_CENTER);
   const [pickup, setPickup] = useState<LatLng | null>(null);
+  const [pickupLabel, setPickupLabel] = useState<string | null>(null);
   const [dropoff, setDropoff] = useState<LatLng | null>(null);
   const [dropoffLabel, setDropoffLabel] = useState<string | null>(null);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selecting, setSelecting] = useState<SelectableTarget>("none");
   const [sheetIndex, setSheetIndex] = useState(0);
   const [requesting, setRequesting] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<AddressResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [locatingMe, setLocatingMe] = useState(false);
 
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -50,6 +60,7 @@ export default function PassengerHome() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -59,6 +70,7 @@ export default function PassengerHome() {
       const here = { lat: loc.coords.latitude, lng: loc.coords.longitude };
       setCenter(here);
       setPickup(here);
+      setPickupLabel("Sua localização atual");
     })();
   }, []);
 
@@ -99,22 +111,85 @@ export default function PassengerHome() {
     };
   }, [pickup, dropoff]);
 
+  useEffect(() => {
+    if (selecting === "none" || !searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      searchAddress(searchQuery, pickup ?? undefined)
+        .then((results) => !cancelled && setSearchResults(results))
+        .finally(() => !cancelled && setSearching(false));
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selecting]);
+
+  function activateTarget(target: SelectableTarget) {
+    setSelecting(target);
+    setSearchQuery("");
+    setSearchResults([]);
+  }
+
   function handleSelectLocation(point: LatLng) {
-    if (selecting === "pickup") setPickup(point);
-    else if (selecting === "dropoff") {
+    if (selecting === "pickup") {
+      setPickup(point);
+      setPickupLabel(null);
+    } else if (selecting === "dropoff") {
       setDropoff(point);
       setDropoffLabel(null);
     }
   }
 
   function openDestinationPicker() {
-    setSelecting("dropoff");
+    activateTarget("dropoff");
     setSheetIndex(1);
   }
 
+  function handleSelectSearchResult(result: AddressResult) {
+    if (selecting === "pickup") {
+      setPickup({ lat: result.lat, lng: result.lng });
+      setPickupLabel(result.label);
+    } else if (selecting === "dropoff") {
+      setDropoff({ lat: result.lat, lng: result.lng });
+      setDropoffLabel(result.label);
+    }
+    setSearchQuery("");
+    setSearchResults([]);
+  }
+
   function handleSelectSavedAddress(address: SavedAddress) {
-    setDropoff({ lat: address.lat, lng: address.lng });
-    setDropoffLabel(address.label);
+    if (selecting === "pickup") {
+      setPickup({ lat: address.lat, lng: address.lng });
+      setPickupLabel(address.label);
+    } else {
+      setDropoff({ lat: address.lat, lng: address.lng });
+      setDropoffLabel(address.label);
+    }
+  }
+
+  async function handleUseCurrentLocation() {
+    setLocatingMe(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({});
+      const here = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+      if (selecting === "pickup") {
+        setPickup(here);
+        setPickupLabel("Sua localização atual");
+      } else if (selecting === "dropoff") {
+        setDropoff(here);
+        setDropoffLabel("Sua localização atual");
+      }
+    } finally {
+      setLocatingMe(false);
+    }
   }
 
   function handleSelectCategory(categoryId: string) {
@@ -146,13 +221,15 @@ export default function PassengerHome() {
   }
 
   async function handleRequestRide() {
-    if (!session?.user || !pickup || !dropoff || !route || !selectedCategory || finalFare == null) return;
+    if (!session?.user || !pickup || !dropoff || !route || !selectedCategory || finalFare == null || !paymentMethod)
+      return;
 
     setRequesting(true);
     try {
       const ride = await createRide({
         passengerId: session.user.id,
         categoryId: selectedCategory.id,
+        paymentMethod,
         pickup,
         dropoff,
         distanceKm: route.distanceKm,
@@ -171,7 +248,7 @@ export default function PassengerHome() {
   }
 
   const expanded = sheetIndex === 1;
-  const canRequest = !!pickup && !!dropoff && !!route && !!selectedCategoryId;
+  const canRequest = !!pickup && !!dropoff && !!route && !!selectedCategoryId && !!paymentMethod;
 
   return (
     <View style={styles.container}>
@@ -204,20 +281,22 @@ export default function PassengerHome() {
             <Text style={styles.searchPlaceholder}>Para onde vamos?</Text>
           </TouchableOpacity>
         ) : (
-          <>
+          <BottomSheetScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Text style={styles.sheetTitle}>Para onde vamos?</Text>
 
             <TouchableOpacity
               style={[styles.addressRow, selecting === "pickup" && styles.addressRowActive]}
-              onPress={() => setSelecting("pickup")}
+              onPress={() => activateTarget("pickup")}
             >
               <View style={[styles.addressDot, { backgroundColor: colors.success }]} />
-              <Text style={styles.addressText}>{pickup ? "Sua localização atual" : "Definindo embarque..."}</Text>
+              <Text style={styles.addressText}>
+                {pickup ? pickupLabel ?? `${pickup.lat.toFixed(4)}, ${pickup.lng.toFixed(4)}` : "Definindo embarque..."}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.addressRow, selecting === "dropoff" && styles.addressRowActive]}
-              onPress={() => setSelecting("dropoff")}
+              onPress={() => activateTarget("dropoff")}
             >
               <View style={[styles.addressDot, { backgroundColor: colors.danger }]} />
               <Text style={styles.addressText}>
@@ -227,18 +306,55 @@ export default function PassengerHome() {
               </Text>
             </TouchableOpacity>
 
-            {savedAddresses.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedAddressList}>
-                {savedAddresses.map((address) => (
+            {selecting !== "none" && (
+              <View style={styles.searchSection}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Buscar endereço..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+
+                <TouchableOpacity style={styles.currentLocationButton} onPress={handleUseCurrentLocation} disabled={locatingMe}>
+                  {locatingMe ? (
+                    <ActivityIndicator size="small" color={colors.textPrimary} />
+                  ) : (
+                    <Text style={styles.currentLocationText}>📍 Usar minha localização atual</Text>
+                  )}
+                </TouchableOpacity>
+
+                {searching && <ActivityIndicator style={{ marginVertical: 8 }} />}
+
+                {searchResults.map((result, index) => (
                   <TouchableOpacity
-                    key={address.id}
-                    style={styles.savedAddressChip}
-                    onPress={() => handleSelectSavedAddress(address)}
+                    key={`${result.lat}-${result.lng}-${index}`}
+                    style={styles.resultRow}
+                    onPress={() => handleSelectSearchResult(result)}
                   >
-                    <Text style={styles.savedAddressText}>{address.label}</Text>
+                    <Text style={styles.resultText}>{result.label}</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+
+                {savedAddresses.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.savedAddressList}
+                  >
+                    {savedAddresses.map((address) => (
+                      <TouchableOpacity
+                        key={address.id}
+                        style={styles.savedAddressChip}
+                        onPress={() => handleSelectSavedAddress(address)}
+                      >
+                        <Text style={styles.savedAddressText}>{address.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+
+                <Text style={styles.hint}>Ou toque no mapa para marcar o ponto exato.</Text>
+              </View>
             )}
 
             {pickup && dropoff && (
@@ -301,6 +417,22 @@ export default function PassengerHome() {
                       </TouchableOpacity>
                     </View>
                   ))}
+
+                <Text style={styles.sectionLabel}>Forma de pagamento</Text>
+                <View style={styles.paymentRow}>
+                  {PAYMENT_METHODS.map((method) => {
+                    const active = paymentMethod === method.key;
+                    return (
+                      <TouchableOpacity
+                        key={method.key}
+                        style={[styles.paymentChip, active && styles.paymentChipActive]}
+                        onPress={() => setPaymentMethod(method.key)}
+                      >
+                        <Text style={active ? styles.paymentTextActive : styles.paymentText}>{method.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </>
             )}
 
@@ -311,7 +443,7 @@ export default function PassengerHome() {
                 <Text style={styles.requestButtonText}>Pedir corrida</Text>
               )}
             </TouchableOpacity>
-          </>
+          </BottomSheetScrollView>
         )}
       </RideBottomSheet>
     </View>
@@ -350,7 +482,7 @@ const styles = StyleSheet.create({
   },
   searchDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.black },
   searchPlaceholder: { fontSize: 16, fontWeight: "600", color: colors.textPrimary },
-  sheetTitle: { fontSize: 20, fontWeight: "800", color: colors.textPrimary },
+  sheetTitle: { fontSize: 20, fontWeight: "800", color: colors.textPrimary, marginBottom: 12 },
   addressRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -359,10 +491,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
+    marginBottom: 10,
   },
   addressRowActive: { borderColor: colors.brandYellow, backgroundColor: "#FFFBEB" },
   addressDot: { width: 10, height: 10, borderRadius: 5 },
   addressText: { fontSize: 14, color: colors.textPrimary, flex: 1 },
+  searchSection: { gap: 10, marginBottom: 14 },
+  searchInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14 },
+  currentLocationButton: { paddingVertical: 8 },
+  currentLocationText: { fontSize: 14, fontWeight: "600", color: colors.info },
+  resultRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  resultText: { fontSize: 14, color: colors.textPrimary },
+  hint: { fontSize: 12, color: colors.textSecondary },
   savedAddressList: { gap: 8, paddingVertical: 2 },
   savedAddressChip: {
     borderWidth: 1,
@@ -373,7 +513,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   savedAddressText: { fontSize: 13, fontWeight: "600", color: colors.textPrimary },
-  sectionLabel: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  sectionLabel: { fontSize: 13, color: colors.textSecondary, marginTop: 4, marginBottom: 6 },
   categoryList: { gap: 10, paddingVertical: 4 },
   categoryCard: {
     borderWidth: 1,
@@ -390,7 +530,7 @@ const styles = StyleSheet.create({
   categoryFare: { fontSize: 15, fontWeight: "800", color: colors.textPrimary, marginTop: 4 },
   categoryFareActive: { fontSize: 15, fontWeight: "800", color: colors.black, marginTop: 4 },
   routeInfo: { fontSize: 12, color: colors.textSecondary },
-  couponRow: { flexDirection: "row", gap: 8 },
+  couponRow: { flexDirection: "row", gap: 8, marginTop: 10 },
   couponInput: {
     flex: 1,
     borderWidth: 1,
@@ -407,7 +547,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   couponButtonText: { color: colors.textPrimary, fontWeight: "700" },
-  couponApplied: { fontSize: 13, fontWeight: "700", color: colors.success },
-  requestButton: { backgroundColor: colors.black, borderRadius: 12, padding: 16, alignItems: "center" },
+  couponApplied: { fontSize: 13, fontWeight: "700", color: colors.success, marginTop: 10 },
+  paymentRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  paymentChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  paymentChipActive: { backgroundColor: colors.brandYellow, borderColor: colors.brandYellow },
+  paymentText: { fontSize: 13, fontWeight: "600", color: colors.textPrimary },
+  paymentTextActive: { fontSize: 13, fontWeight: "700", color: colors.black },
+  requestButton: { backgroundColor: colors.black, borderRadius: 12, padding: 16, alignItems: "center", marginTop: 16 },
   requestButtonText: { color: colors.white, fontSize: 16, fontWeight: "800" },
 });

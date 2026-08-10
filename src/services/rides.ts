@@ -9,6 +9,7 @@ interface Point {
 interface CreateRideInput {
   passengerId: string;
   categoryId: string;
+  paymentMethod: string;
   pickup: Point;
   dropoff: Point;
   distanceKm: number;
@@ -26,6 +27,7 @@ export async function createRide(input: CreateRideInput): Promise<Ride> {
     .insert({
       passenger_id: input.passengerId,
       category_id: input.categoryId,
+      payment_method: input.paymentMethod,
       status: "requested",
       pickup_lat: input.pickup.lat,
       pickup_lng: input.pickup.lng,

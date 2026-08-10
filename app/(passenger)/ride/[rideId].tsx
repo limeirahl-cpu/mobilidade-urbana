@@ -19,6 +19,7 @@ import { cancelRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
 import type { Profile, RideCategory, RideRating } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
+import { getPaymentMethodLabel } from "@/utils/paymentMethods";
 import { buildShareMessage } from "@/utils/shareRide";
 
 const SNAP_POINTS = ["32%", "55%"];
@@ -184,6 +185,9 @@ export default function PassengerRideScreen() {
         {ride.coupon_id && ride.discount_amount != null && (
           <Text style={styles.discountLine}>Cupom aplicado: -R$ {ride.discount_amount.toFixed(2)}</Text>
         )}
+        {getPaymentMethodLabel(ride.payment_method) && (
+          <Text style={styles.paymentLine}>Pagamento: {getPaymentMethodLabel(ride.payment_method)}</Text>
+        )}
 
         {(ride.status === "accepted" || ride.status === "arriving" || ride.status === "in_progress") && (
           <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
@@ -257,6 +261,7 @@ const styles = StyleSheet.create({
   shareText: { color: colors.textPrimary, fontWeight: "700" },
   myRating: { fontSize: 15, fontWeight: "700", color: colors.brandYellowDark, textAlign: "center" },
   discountLine: { fontSize: 13, fontWeight: "700", color: colors.success },
+  paymentLine: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
   favoriteStar: { fontSize: 26, color: colors.border },
   favoriteStarActive: { color: colors.brandYellow },
   driverInitial: { fontSize: 18, fontWeight: "800", color: colors.black },

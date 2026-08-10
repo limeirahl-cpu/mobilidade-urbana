@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { fetchCategoryById } from "@/services/categories";
 import { colors } from "@/theme/colors";
 import type { Ride } from "@/types/database";
+import { getPaymentMethodLabel } from "@/utils/paymentMethods";
 
 const STATUS_LABEL: Record<string, string> = {
   completed: "Concluída",
@@ -49,6 +50,9 @@ export function RideHistoryCard({ ride, onPress }: { ride: Ride; onPress: () => 
       {ride.coupon_id && ride.discount_amount != null && (
         <Text style={styles.discount}>Cupom: -R$ {ride.discount_amount.toFixed(2)}</Text>
       )}
+      {getPaymentMethodLabel(ride.payment_method) && (
+        <Text style={styles.payment}>{getPaymentMethodLabel(ride.payment_method)}</Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -62,4 +66,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, color: colors.textPrimary },
   fare: { fontSize: 16, fontWeight: "800", color: colors.textPrimary, marginTop: 2 },
   discount: { fontSize: 12, fontWeight: "700", color: colors.success },
+  payment: { fontSize: 12, color: colors.textSecondary },
 });

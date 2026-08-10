@@ -17,6 +17,7 @@ import { cancelRide, completeRide, startHeadingToPickup } from "@/services/rides
 import { colors } from "@/theme/colors";
 import type { Profile, RideCategory, RideRating } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
+import { getPaymentMethodLabel } from "@/utils/paymentMethods";
 
 const SNAP_POINTS = ["30%", "55%"];
 
@@ -112,7 +113,12 @@ export default function DriverRideScreen() {
 
       <RideBottomSheet index={sheetIndex} snapPoints={SNAP_POINTS} onChangeIndex={setSheetIndex}>
         <RideStatusBanner status={ride.status} />
-        {category && <Text style={styles.categoryBadge}>{category.label}</Text>}
+        <View style={styles.badgeRow}>
+          {category && <Text style={styles.categoryBadge}>{category.label}</Text>}
+          {getPaymentMethodLabel(ride.payment_method) && (
+            <Text style={styles.paymentBadge}>{getPaymentMethodLabel(ride.payment_method)}</Text>
+          )}
+        </View>
 
         {passengerProfile && (
           <View style={styles.passengerCard}>
@@ -200,11 +206,22 @@ export default function DriverRideScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  badgeRow: { flexDirection: "row", gap: 8 },
   categoryBadge: {
     fontSize: 12,
     fontWeight: "800",
     color: colors.black,
     backgroundColor: colors.brandYellow,
+    alignSelf: "flex-start",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  paymentBadge: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
     alignSelf: "flex-start",
     borderRadius: 6,
     paddingHorizontal: 8,

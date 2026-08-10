@@ -24,6 +24,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de um proved
    - [`supabase/migrations/0007_ratings.sql`](supabase/migrations/0007_ratings.sql)
    - [`supabase/migrations/0008_profile_extras.sql`](supabase/migrations/0008_profile_extras.sql)
    - [`supabase/migrations/0009_coupons.sql`](supabase/migrations/0009_coupons.sql)
+   - [`supabase/migrations/0010_payment_method.sql`](supabase/migrations/0010_payment_method.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -70,7 +71,7 @@ Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo t
 
 1. **Dispositivo A**: cadastre-se, escolha "Sou passageiro".
 2. **Dispositivo B**: cadastre-se, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico), e ative o toggle **Online**.
-3. **A**: toque em "Para onde vamos?", marque o destino no mapa, escolha uma categoria entre os cartões de preço, toque em "Pedir corrida" — se marcar uma categoria diferente da que o motorista B escolheu (ex: passageiro pede Moto, motorista está em Econômico), B não deve ver a corrida.
+3. **A**: toque em "Para onde vamos?". No destino, digite um endereço no campo de busca e escolha um resultado (ou toque direto no mapa). Escolha uma categoria entre os cartões de preço e uma forma de pagamento — o botão "Pedir corrida" só habilita depois dos dois. Se marcar uma categoria diferente da que o motorista B escolheu (ex: passageiro pede Moto, motorista está em Econômico), B não deve ver a corrida.
 4. **B**: a corrida deve aparecer no cartão em poucos segundos — toque em "Aceitar".
 5. **A**: a tela deve mostrar o motorista atribuído.
 6. Para simular o motorista se movendo (sem GPS real): no simulador iOS, vá em **Features → Location**; no Android, use os **Extended Controls → Location** e mova o ponto ou rode uma rota. O marcador azul no dispositivo A deve se mover em tempo real.
