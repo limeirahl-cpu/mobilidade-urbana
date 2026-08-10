@@ -30,6 +30,23 @@ export interface Profile {
   category_id: string | null;
   rating_avg: number | null;
   rating_count: number;
+  avatar_url: string | null;
+  created_at: string;
+}
+
+export interface SavedAddress {
+  id: string;
+  user_id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  address_text: string | null;
+  created_at: string;
+}
+
+export interface FavoriteDriver {
+  passenger_id: string;
+  driver_id: string;
   created_at: string;
 }
 
@@ -66,6 +83,8 @@ export interface Ride {
   estimated_distance_km: number | null;
   estimated_duration_min: number | null;
   estimated_fare: number | null;
+  coupon_id: string | null;
+  discount_amount: number | null;
   requested_at: string;
   accepted_at: string | null;
   started_at: string | null;

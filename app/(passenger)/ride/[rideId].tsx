@@ -12,6 +12,7 @@ import { useDriverStatus } from "@/hooks/useDriverStatus";
 import { useRide } from "@/hooks/useRide";
 import { fetchProfile } from "@/services/auth";
 import { fetchCategoryById } from "@/services/categories";
+import { addFavoriteDriver, isFavoriteDriver, removeFavoriteDriver } from "@/services/favoriteDrivers";
 import { fetchMyRatingForRide, submitRating } from "@/services/ratings";
 import { fetchPin } from "@/services/ridePin";
 import { cancelRide } from "@/services/rides";
@@ -32,6 +33,7 @@ export default function PassengerRideScreen() {
   const [category, setCategory] = useState<RideCategory | null>(null);
   const [pin, setPin] = useState<string | null>(null);
   const [myRating, setMyRating] = useState<RideRating | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [sheetIndex, setSheetIndex] = useState(0);
 
   useEffect(() => {
@@ -39,6 +41,26 @@ export default function PassengerRideScreen() {
       fetchProfile(ride.driver_id).then(setDriverProfile).catch(() => setDriverProfile(null));
     }
   }, [ride?.driver_id]);
+
+  useEffect(() => {
+    if (ride?.driver_id && session?.user) {
+      isFavoriteDriver(session.user.id, ride.driver_id).then(setIsFavorite).catch(() => setIsFavorite(false));
+    }
+  }, [ride?.driver_id, session?.user]);
+
+  async function handleToggleFavorite() {
+    if (!ride?.driver_id || !session?.user) return;
+    try {
+      if (isFavorite) {
+        await removeFavoriteDriver(session.user.id, ride.driver_id);
+      } else {
+        await addFavoriteDriver(session.user.id, ride.driver_id);
+      }
+      setIsFavorite(!isFavorite);
+    } catch (err) {
+      Alert.alert("Erro", getErrorMessage(err));
+    }
+  }
 
   useEffect(() => {
     if (ride?.category_id) {
@@ -123,7 +145,10 @@ export default function PassengerRideScreen() {
         {category && <Text style={styles.categoryBadge}>{category.label}</Text>}
 
         {driverProfile &&
-          (ride.status === "accepted" || ride.status === "arriving" || ride.status === "in_progress") && (
+          (ride.status === "accepted" ||
+            ride.status === "arriving" ||
+            ride.status === "in_progress" ||
+            ride.status === "completed") && (
             <View style={styles.driverCard}>
               <View style={styles.driverAvatar}>
                 <Text style={styles.driverInitial}>{driverProfile.full_name.charAt(0).toUpperCase()}</Text>
@@ -137,6 +162,11 @@ export default function PassengerRideScreen() {
                   <Text style={styles.driverVehicle}>{driverProfile.vehicle_info}</Text>
                 ) : null}
               </View>
+              <TouchableOpacity onPress={handleToggleFavorite}>
+                <Text style={[styles.favoriteStar, isFavorite && styles.favoriteStarActive]}>
+                  {isFavorite ? "★" : "☆"}
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -150,6 +180,9 @@ export default function PassengerRideScreen() {
 
         {ride.estimated_distance_km != null && ride.estimated_fare != null && (
           <FareEstimate distanceKm={ride.estimated_distance_km} fare={ride.estimated_fare} />
+        )}
+        {ride.coupon_id && ride.discount_amount != null && (
+          <Text style={styles.discountLine}>Cupom aplicado: -R$ {ride.discount_amount.toFixed(2)}</Text>
         )}
 
         {(ride.status === "accepted" || ride.status === "arriving" || ride.status === "in_progress") && (
@@ -223,6 +256,9 @@ const styles = StyleSheet.create({
   shareButton: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, alignItems: "center" },
   shareText: { color: colors.textPrimary, fontWeight: "700" },
   myRating: { fontSize: 15, fontWeight: "700", color: colors.brandYellowDark, textAlign: "center" },
+  discountLine: { fontSize: 13, fontWeight: "700", color: colors.success },
+  favoriteStar: { fontSize: 26, color: colors.border },
+  favoriteStarActive: { color: colors.brandYellow },
   driverInitial: { fontSize: 18, fontWeight: "800", color: colors.black },
   driverName: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
   driverVehicle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },

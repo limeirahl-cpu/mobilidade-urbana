@@ -61,3 +61,22 @@ export async function createProfile(input: CreateProfileInput): Promise<Profile>
 
   return data;
 }
+
+interface UpdateProfileInput {
+  fullName?: string;
+  phone?: string;
+  avatarUrl?: string;
+  categoryId?: string;
+}
+
+export async function updateProfile(id: string, input: UpdateProfileInput): Promise<Profile> {
+  const patch: Record<string, unknown> = {};
+  if (input.fullName !== undefined) patch.full_name = input.fullName;
+  if (input.phone !== undefined) patch.phone = input.phone;
+  if (input.avatarUrl !== undefined) patch.avatar_url = input.avatarUrl;
+  if (input.categoryId !== undefined) patch.category_id = input.categoryId;
+
+  const { data, error } = await supabase.from("profiles").update(patch).eq("id", id).select().single();
+  if (error) throw error;
+  return data;
+}

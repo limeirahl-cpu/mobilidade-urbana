@@ -16,6 +16,8 @@ interface CreateRideInput {
   fare: number;
   pickupAddress?: string;
   dropoffAddress?: string;
+  couponId?: string;
+  discountAmount?: number;
 }
 
 export async function createRide(input: CreateRideInput): Promise<Ride> {
@@ -34,6 +36,8 @@ export async function createRide(input: CreateRideInput): Promise<Ride> {
       estimated_distance_km: input.distanceKm,
       estimated_duration_min: input.durationMin,
       estimated_fare: input.fare,
+      coupon_id: input.couponId ?? null,
+      discount_amount: input.discountAmount ?? null,
     })
     .select()
     .single();

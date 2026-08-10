@@ -46,6 +46,9 @@ export function RideHistoryCard({ ride, onPress }: { ride: Ride; onPress: () => 
         {ride.dropoff_lng.toFixed(4)}
       </Text>
       {ride.estimated_fare != null && <Text style={styles.fare}>R$ {ride.estimated_fare.toFixed(2)}</Text>}
+      {ride.coupon_id && ride.discount_amount != null && (
+        <Text style={styles.discount}>Cupom: -R$ {ride.discount_amount.toFixed(2)}</Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -58,4 +61,5 @@ const styles = StyleSheet.create({
   category: { fontSize: 12, fontWeight: "700", color: colors.textPrimary },
   label: { fontSize: 13, color: colors.textPrimary },
   fare: { fontSize: 16, fontWeight: "800", color: colors.textPrimary, marginTop: 2 },
+  discount: { fontSize: 12, fontWeight: "700", color: colors.success },
 });

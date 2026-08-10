@@ -22,6 +22,8 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de um proved
    - [`supabase/migrations/0005_ride_categories.sql`](supabase/migrations/0005_ride_categories.sql)
    - [`supabase/migrations/0006_boarding_pin.sql`](supabase/migrations/0006_boarding_pin.sql)
    - [`supabase/migrations/0007_ratings.sql`](supabase/migrations/0007_ratings.sql)
+   - [`supabase/migrations/0008_profile_extras.sql`](supabase/migrations/0008_profile_extras.sql)
+   - [`supabase/migrations/0009_coupons.sql`](supabase/migrations/0009_coupons.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -79,5 +81,9 @@ Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo t
 11. **A**: deve ver a tela de conclusão com o resumo da tarifa — avalie o motorista com estrelas e um comentário.
 12. **B**: avalie o passageiro também.
 13. Nos dois lados, toque em "Histórico" na tela inicial e confirme que a corrida concluída aparece na lista.
+14. Toque em "Perfil" (A ou B), troque a foto e o nome, volte e reabra a tela — deve persistir.
+15. Em "Meus endereços" (A), adicione um endereço "Trabalho"; volte pra tela inicial, toque em "Para onde vamos?" e confirme que ele aparece como chip — tocar nele já marca o destino sem precisar tocar no mapa.
+16. Depois de concluir uma corrida, toque na estrela do card do motorista pra favoritar; abra "Motoristas favoritos" (dentro de Perfil) e confirme que ele aparece lá.
+17. Numa corrida nova, no sheet de categoria, digite `BEMVINDO10` no campo de cupom e toque em "Aplicar" — a tarifa final deve cair 10%. Peça a corrida e confirme na tela de detalhe (e no histórico) que aparece "Cupom aplicado: -R$X".
 
 Se algo travar, o primeiro lugar para olhar é o terminal onde `npx expo start` está rodando — os erros de JavaScript aparecem ali.
