@@ -20,6 +20,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de um proved
    - [`supabase/migrations/0003_realtime_publication.sql`](supabase/migrations/0003_realtime_publication.sql)
    - [`supabase/migrations/0004_fix_profiles_rides_rls_recursion.sql`](supabase/migrations/0004_fix_profiles_rides_rls_recursion.sql)
    - [`supabase/migrations/0005_ride_categories.sql`](supabase/migrations/0005_ride_categories.sql)
+   - [`supabase/migrations/0006_boarding_pin.sql`](supabase/migrations/0006_boarding_pin.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -70,7 +71,10 @@ Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo t
 4. **B**: a corrida deve aparecer no cartão em poucos segundos — toque em "Aceitar".
 5. **A**: a tela deve mostrar o motorista atribuído.
 6. Para simular o motorista se movendo (sem GPS real): no simulador iOS, vá em **Features → Location**; no Android, use os **Extended Controls → Location** e mova o ponto ou rode uma rota. O marcador azul no dispositivo A deve se mover em tempo real.
-7. **B**: avance a corrida pelos botões ("Seguir para o embarque" → "Iniciar corrida" → "Concluir corrida").
-8. **A**: deve ver a tela de conclusão com o resumo da tarifa.
+7. **A**: teste o botão "Compartilhar viagem" — deve abrir o menu nativo de compartilhamento (WhatsApp/SMS/etc) com os dados da corrida.
+8. **B**: toque em "Seguir para o embarque". Na tela do passageiro (A) deve aparecer um PIN de 4 dígitos.
+9. **B**: tente iniciar a corrida com um PIN errado — deve dar erro "PIN incorreto" sem avançar. Digite o PIN certo (o que aparece na tela de A) — a corrida deve avançar para "em andamento".
+10. **B**: toque em "Concluir corrida".
+11. **A**: deve ver a tela de conclusão com o resumo da tarifa.
 
 Se algo travar, o primeiro lugar para olhar é o terminal onde `npx expo start` está rodando — os erros de JavaScript aparecem ali.

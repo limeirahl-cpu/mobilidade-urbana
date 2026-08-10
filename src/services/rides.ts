@@ -67,13 +67,8 @@ export async function startHeadingToPickup(rideId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function startRide(rideId: string): Promise<void> {
-  const { error } = await supabase
-    .from("rides")
-    .update({ status: "in_progress", started_at: new Date().toISOString() })
-    .eq("id", rideId);
-  if (error) throw error;
-}
+// arriving -> in_progress only happens via ridePin.ts's startRideWithPin()
+// RPC now — the RLS policy no longer allows a plain client update for it.
 
 export async function completeRide(rideId: string): Promise<void> {
   const { error } = await supabase

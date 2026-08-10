@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { MapWebView } from "@/components/map/MapWebView";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
@@ -11,10 +11,12 @@ import { useDriverStatus } from "@/hooks/useDriverStatus";
 import { useRide } from "@/hooks/useRide";
 import { fetchProfile } from "@/services/auth";
 import { fetchCategoryById } from "@/services/categories";
+import { fetchPin } from "@/services/ridePin";
 import { cancelRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
 import type { Profile, RideCategory } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
+import { buildShareMessage } from "@/utils/shareRide";
 
 const SNAP_POINTS = ["32%", "55%"];
 
@@ -26,6 +28,7 @@ export default function PassengerRideScreen() {
   const driverStatus = useDriverStatus(ride?.driver_id ?? null);
   const [driverProfile, setDriverProfile] = useState<Profile | null>(null);
   const [category, setCategory] = useState<RideCategory | null>(null);
+  const [pin, setPin] = useState<string | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
 
   useEffect(() => {
@@ -39,6 +42,21 @@ export default function PassengerRideScreen() {
       fetchCategoryById(ride.category_id).then(setCategory).catch(() => setCategory(null));
     }
   }, [ride?.category_id]);
+
+  useEffect(() => {
+    if (ride?.id) {
+      fetchPin(ride.id).then(setPin).catch(() => setPin(null));
+    }
+  }, [ride?.id]);
+
+  async function handleShare() {
+    if (!ride) return;
+    try {
+      await Share.share({ message: buildShareMessage(ride, driverProfile, category) });
+    } catch {
+      // user dismissed the share sheet — nothing to do
+    }
+  }
 
   async function handleCancel() {
     if (!ride || !session?.user) return;
@@ -93,8 +111,22 @@ export default function PassengerRideScreen() {
             </View>
           )}
 
+        {pin && (ride.status === "accepted" || ride.status === "arriving") && (
+          <View style={styles.pinCard}>
+            <Text style={styles.pinLabel}>PIN de embarque</Text>
+            <Text style={styles.pinValue}>{pin}</Text>
+            <Text style={styles.pinHint}>Informe esse código ao motorista para iniciar a corrida</Text>
+          </View>
+        )}
+
         {ride.estimated_distance_km != null && ride.estimated_fare != null && (
           <FareEstimate distanceKm={ride.estimated_distance_km} fare={ride.estimated_fare} />
+        )}
+
+        {(ride.status === "accepted" || ride.status === "arriving" || ride.status === "in_progress") && (
+          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+            <Text style={styles.shareText}>Compartilhar viagem</Text>
+          </TouchableOpacity>
         )}
 
         {(ride.status === "requested" || ride.status === "accepted" || ride.status === "arriving") && (
@@ -142,6 +174,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
+  pinCard: {
+    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    alignItems: "center",
+    gap: 2,
+  },
+  pinLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
+  pinValue: { fontSize: 28, fontWeight: "800", color: colors.textPrimary, letterSpacing: 4 },
+  pinHint: { fontSize: 12, color: colors.textSecondary, textAlign: "center" },
+  shareButton: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, alignItems: "center" },
+  shareText: { color: colors.textPrimary, fontWeight: "700" },
   driverInitial: { fontSize: 18, fontWeight: "800", color: colors.black },
   driverName: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
   driverVehicle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },

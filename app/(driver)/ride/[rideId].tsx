@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { MapWebView } from "@/components/map/MapWebView";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
@@ -9,12 +9,13 @@ import { RideStatusBanner } from "@/components/ride/RideStatusBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRide } from "@/hooks/useRide";
 import { fetchCategoryById } from "@/services/categories";
-import { cancelRide, completeRide, startHeadingToPickup, startRide } from "@/services/rides";
+import { startRideWithPin } from "@/services/ridePin";
+import { cancelRide, completeRide, startHeadingToPickup } from "@/services/rides";
 import { colors } from "@/theme/colors";
 import type { RideCategory } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
 
-const SNAP_POINTS = ["30%", "50%"];
+const SNAP_POINTS = ["30%", "55%"];
 
 export default function DriverRideScreen() {
   const { rideId } = useLocalSearchParams<{ rideId: string }>();
@@ -23,6 +24,8 @@ export default function DriverRideScreen() {
   const { ride, loading } = useRide(rideId ?? null);
   const [category, setCategory] = useState<RideCategory | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
+  const [pinInput, setPinInput] = useState("");
+  const [confirmingPin, setConfirmingPin] = useState(false);
 
   useEffect(() => {
     if (ride?.category_id) {
@@ -35,6 +38,22 @@ export default function DriverRideScreen() {
       await action();
     } catch (err) {
       Alert.alert("Erro", getErrorMessage(err));
+    }
+  }
+
+  async function handleConfirmPin() {
+    if (!ride || pinInput.length !== 4) return;
+    setConfirmingPin(true);
+    try {
+      const ok = await startRideWithPin(ride.id, pinInput);
+      if (!ok) {
+        Alert.alert("PIN incorreto", "Peça para o passageiro confirmar o código e tente de novo.");
+      }
+      setPinInput("");
+    } catch (err) {
+      Alert.alert("Erro", getErrorMessage(err));
+    } finally {
+      setConfirmingPin(false);
     }
   }
 
@@ -75,9 +94,29 @@ export default function DriverRideScreen() {
         )}
 
         {ride.status === "arriving" && (
-          <TouchableOpacity style={styles.primaryButton} onPress={() => guard(() => startRide(ride.id))}>
-            <Text style={styles.primaryText}>Iniciar corrida</Text>
-          </TouchableOpacity>
+          <View style={styles.pinSection}>
+            <Text style={styles.pinLabel}>Peça o PIN de 4 dígitos ao passageiro</Text>
+            <TextInput
+              style={styles.pinInput}
+              value={pinInput}
+              onChangeText={(t) => setPinInput(t.replace(/\D/g, "").slice(0, 4))}
+              keyboardType="number-pad"
+              maxLength={4}
+              placeholder="0000"
+              textAlign="center"
+            />
+            <TouchableOpacity
+              style={[styles.primaryButton, pinInput.length !== 4 && styles.primaryButtonDisabled]}
+              onPress={handleConfirmPin}
+              disabled={pinInput.length !== 4 || confirmingPin}
+            >
+              {confirmingPin ? (
+                <ActivityIndicator color={colors.black} />
+              ) : (
+                <Text style={styles.primaryText}>Confirmar e iniciar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
 
         {ride.status === "in_progress" && (
@@ -118,7 +157,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
+  pinSection: { gap: 10 },
+  pinLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: "600" },
+  pinInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: 8,
+  },
   primaryButton: { backgroundColor: colors.brandYellow, borderRadius: 12, padding: 16, alignItems: "center" },
+  primaryButtonDisabled: { opacity: 0.5 },
   primaryText: { color: colors.black, fontWeight: "800", fontSize: 16 },
   cancelButton: { borderWidth: 1, borderColor: colors.danger, borderRadius: 12, padding: 14, alignItems: "center" },
   cancelText: { color: colors.danger, fontWeight: "700" },

@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { signOut } from "@/services/auth";
 import { fetchActiveCategories } from "@/services/categories";
 import { getRoute } from "@/services/directions";
+import { createPinForRide } from "@/services/ridePin";
 import { createRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
 import type { RideCategory } from "@/types/database";
@@ -109,6 +110,7 @@ export default function PassengerHome() {
         durationMin: route.durationMin,
         fare,
       });
+      await createPinForRide(ride.id);
       router.push(`/(passenger)/ride/${ride.id}`);
     } catch (err) {
       Alert.alert("Erro ao pedir corrida", getErrorMessage(err));
