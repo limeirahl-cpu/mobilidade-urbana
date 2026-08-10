@@ -1,6 +1,8 @@
 export const colors = {
-  brandYellow: "#FFCC00",
-  brandYellowDark: "#E6B800",
+  brandGreen: "#96B614",
+  brandGreenDark: "#629111",
+  brandOrange: "#FD830A",
+  brandOrangeDark: "#D76F08",
   black: "#1A1A1A",
   white: "#FFFFFF",
   textPrimary: "#1A1A1A",

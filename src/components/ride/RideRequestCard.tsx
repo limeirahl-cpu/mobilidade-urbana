@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     color: colors.black,
-    backgroundColor: colors.brandYellow,
+    backgroundColor: colors.brandGreen,
     alignSelf: "flex-start",
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, color: colors.textSecondary },
   fare: { fontSize: 18, fontWeight: "800", color: colors.textPrimary, marginTop: 4 },
   acceptButton: {
-    backgroundColor: colors.brandYellow,
+    backgroundColor: colors.brandGreen,
     borderRadius: 10,
     padding: 14,
     alignItems: "center",

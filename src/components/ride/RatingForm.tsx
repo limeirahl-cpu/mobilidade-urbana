@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
   starsRow: { flexDirection: "row", gap: 8 },
   star: { fontSize: 32, color: colors.border },
-  starFilled: { color: colors.brandYellow },
+  starFilled: { color: colors.brandGreen },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minHeight: 44,
   },
-  button: { backgroundColor: colors.brandYellow, borderRadius: 10, padding: 14, alignItems: "center" },
+  button: { backgroundColor: colors.brandGreen, borderRadius: 10, padding: 14, alignItems: "center" },
   buttonDisabled: { opacity: 0.5 },
   buttonText: { color: colors.black, fontWeight: "800" },
 });

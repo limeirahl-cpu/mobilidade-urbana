@@ -1,4 +1,4 @@
-# Mobilidade Urbana
+# Urbix — Mobilidade que conecta
 
 MVP de um app de corridas (estilo Uber/99): passageiro pede corrida, motorista aceita e ambos acompanham em tempo real até a conclusão.
 

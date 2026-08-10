@@ -1,4 +1,4 @@
-# Guia de setup — Mobilidade Urbana (MVP)
+# Guia de setup — Urbix (MVP)
 
 Este app não roda "pronto": ele precisa de um backend (Supabase) e de um provedor de mapas (Mapbox) configurados com suas próprias chaves. Siga os passos abaixo uma vez só.
 

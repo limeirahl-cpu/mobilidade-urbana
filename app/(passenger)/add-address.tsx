@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   buttonRow: { flexDirection: "row", gap: 12 },
   cancelButton: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 14, alignItems: "center" },
   cancelText: { color: colors.textPrimary, fontWeight: "700" },
-  saveButton: { flex: 1, backgroundColor: colors.black, borderRadius: 10, padding: 14, alignItems: "center" },
+  saveButton: { flex: 1, backgroundColor: colors.brandOrange, borderRadius: 10, padding: 14, alignItems: "center" },
   saveButtonDisabled: { opacity: 0.5 },
   saveText: { color: colors.white, fontWeight: "700" },
 });

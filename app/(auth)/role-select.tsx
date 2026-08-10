@@ -160,9 +160,9 @@ const styles = StyleSheet.create({
     padding: 14,
     alignItems: "center",
   },
-  roleButtonActive: { backgroundColor: colors.black, borderColor: colors.black },
+  roleButtonActive: { backgroundColor: colors.brandGreen, borderColor: colors.brandGreen },
   roleText: { color: colors.black, fontWeight: "600" },
-  roleTextActive: { color: colors.white, fontWeight: "600" },
+  roleTextActive: { color: colors.black, fontWeight: "600" },
   sectionLabel: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
   categoryRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   categoryChip: {
@@ -172,9 +172,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
-  categoryChipActive: { backgroundColor: colors.brandYellow, borderColor: colors.brandYellow },
+  categoryChipActive: { backgroundColor: colors.brandGreen, borderColor: colors.brandGreen },
   categoryText: { color: colors.black, fontWeight: "600" },
   categoryTextActive: { color: colors.black, fontWeight: "700" },
-  button: { backgroundColor: colors.black, borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
+  button: { backgroundColor: colors.brandOrange, borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
   buttonText: { color: colors.white, fontSize: 16, fontWeight: "600" },
 });

@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   container: { gap: 14 },
   avatarWrapper: { alignItems: "center", gap: 6 },
   avatar: { width: 88, height: 88, borderRadius: 44 },
-  avatarPlaceholder: { backgroundColor: colors.brandYellow, alignItems: "center", justifyContent: "center" },
+  avatarPlaceholder: { backgroundColor: colors.brandGreen, alignItems: "center", justifyContent: "center" },
   avatarInitial: { fontSize: 32, fontWeight: "800", color: colors.black },
   avatarOverlay: {
     position: "absolute",
@@ -187,9 +187,9 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 13, color: colors.textSecondary },
   categoryRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   categoryChip: { borderWidth: 1, borderColor: colors.border, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 16 },
-  categoryChipActive: { backgroundColor: colors.brandYellow, borderColor: colors.brandYellow },
+  categoryChipActive: { backgroundColor: colors.brandGreen, borderColor: colors.brandGreen },
   categoryText: { color: colors.black, fontWeight: "600" },
   categoryTextActive: { color: colors.black, fontWeight: "700" },
-  saveButton: { backgroundColor: colors.black, borderRadius: 8, padding: 14, alignItems: "center" },
+  saveButton: { backgroundColor: colors.brandOrange, borderRadius: 8, padding: 14, alignItems: "center" },
   saveText: { color: colors.white, fontSize: 16, fontWeight: "700" },
 });

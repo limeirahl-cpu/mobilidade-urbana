@@ -83,7 +83,7 @@ export default function DriverHome() {
           <Switch
             value={isOnline}
             onValueChange={toggleOnline}
-            trackColor={{ true: colors.brandYellow, false: colors.border }}
+            trackColor={{ true: colors.brandGreen, false: colors.border }}
           />
           <TouchableOpacity onPress={() => router.push("/(driver)/profile")}>
             <Text style={styles.historyLink}>Perfil</Text>

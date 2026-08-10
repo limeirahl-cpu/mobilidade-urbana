@@ -13,7 +13,7 @@ const LABELS: Record<RideStatus, string> = {
 };
 
 const STYLE_BY_STATUS: Record<RideStatus, { bg: string; fg: string }> = {
-  requested: { bg: colors.brandYellow, fg: colors.black },
+  requested: { bg: colors.brandGreen, fg: colors.black },
   accepted: { bg: colors.black, fg: colors.white },
   arriving: { bg: colors.black, fg: colors.white },
   in_progress: { bg: colors.success, fg: colors.white },
