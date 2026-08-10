@@ -25,8 +25,10 @@ export function useRide(rideId: string | null) {
       }
     });
 
+    // Unique per mount — see useDriverStatus.ts for why (avoids reusing a
+    // same-named channel that's still mid-teardown from a previous mount).
     const channel = supabase
-      .channel(`ride-${rideId}`)
+      .channel(`ride-${rideId}-${Math.random().toString(36).slice(2, 10)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "rides", filter: `id=eq.${rideId}` },

@@ -19,8 +19,12 @@ export function useDriverStatus(driverId: string | null) {
       if (!cancelled) setStatus(s);
     });
 
+    // Unique per mount (not just per driverId): if an old channel with the
+    // same name hasn't finished being removed yet (removeChannel is async),
+    // Supabase reuses that still-subscribed instance instead of making a
+    // new one, and .on() throws on an already-subscribed channel.
     const channel = supabase
-      .channel(`driver-status-${driverId}`)
+      .channel(`driver-status-${driverId}-${Math.random().toString(36).slice(2, 10)}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "driver_status", filter: `driver_id=eq.${driverId}` },

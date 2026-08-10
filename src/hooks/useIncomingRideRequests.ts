@@ -19,8 +19,10 @@ export function useIncomingRideRequests(enabled: boolean, categoryId: string | n
       if (!cancelled) setRequests(rides);
     });
 
+    // Unique per mount — see useDriverStatus.ts for why (avoids reusing a
+    // same-named channel that's still mid-teardown from a previous mount).
     const channel = supabase
-      .channel("open-ride-requests")
+      .channel(`open-ride-requests-${Math.random().toString(36).slice(2, 10)}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "rides", filter: "status=eq.requested" },
