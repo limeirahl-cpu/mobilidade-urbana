@@ -18,6 +18,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de um proved
 3. Repita o mesmo processo, em ordem, para:
    - [`supabase/migrations/0002_rls_policies.sql`](supabase/migrations/0002_rls_policies.sql)
    - [`supabase/migrations/0003_realtime_publication.sql`](supabase/migrations/0003_realtime_publication.sql)
+   - [`supabase/migrations/0004_fix_profiles_rides_rls_recursion.sql`](supabase/migrations/0004_fix_profiles_rides_rls_recursion.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
