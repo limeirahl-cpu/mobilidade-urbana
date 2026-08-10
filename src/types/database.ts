@@ -1,0 +1,48 @@
+export type UserRole = "passenger" | "driver";
+
+export type RideStatus =
+  | "requested"
+  | "accepted"
+  | "arriving"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
+export interface Profile {
+  id: string;
+  role: UserRole;
+  full_name: string;
+  phone: string | null;
+  vehicle_info: string | null;
+  created_at: string;
+}
+
+export interface DriverStatus {
+  driver_id: string;
+  is_online: boolean;
+  current_lat: number | null;
+  current_lng: number | null;
+  heading: number | null;
+  updated_at: string;
+}
+
+export interface Ride {
+  id: string;
+  passenger_id: string;
+  driver_id: string | null;
+  status: RideStatus;
+  pickup_lat: number;
+  pickup_lng: number;
+  pickup_address: string | null;
+  dropoff_lat: number;
+  dropoff_lng: number;
+  dropoff_address: string | null;
+  estimated_distance_km: number | null;
+  estimated_fare: number | null;
+  requested_at: string;
+  accepted_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+}
