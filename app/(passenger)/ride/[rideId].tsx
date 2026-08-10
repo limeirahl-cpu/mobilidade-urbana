@@ -27,7 +27,7 @@ const SNAP_POINTS = ["32%", "55%"];
 export default function PassengerRideScreen() {
   const { rideId } = useLocalSearchParams<{ rideId: string }>();
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const { ride, loading } = useRide(rideId ?? null);
   const driverStatus = useDriverStatus(ride?.driver_id ?? null);
   const [driverProfile, setDriverProfile] = useState<Profile | null>(null);
@@ -126,7 +126,11 @@ export default function PassengerRideScreen() {
 
   const driverLocation =
     driverStatus?.current_lat != null && driverStatus?.current_lng != null
-      ? { lat: driverStatus.current_lat, lng: driverStatus.current_lng }
+      ? {
+          lat: driverStatus.current_lat,
+          lng: driverStatus.current_lng,
+          vehicleType: (category?.key === "moto" ? "moto" : "car") as "moto" | "car",
+        }
       : null;
 
   return (
@@ -134,7 +138,7 @@ export default function PassengerRideScreen() {
       <View style={StyleSheet.absoluteFillObject}>
         <MapWebView
           initialCenter={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
-          pickup={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
+          pickup={{ lat: ride.pickup_lat, lng: ride.pickup_lng, gender: profile?.gender }}
           dropoff={{ lat: ride.dropoff_lat, lng: ride.dropoff_lng }}
           driverLocation={driverLocation}
           selectable="none"

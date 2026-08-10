@@ -105,7 +105,7 @@ export default function DriverRideScreen() {
       <View style={StyleSheet.absoluteFillObject}>
         <MapWebView
           initialCenter={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
-          pickup={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
+          pickup={{ lat: ride.pickup_lat, lng: ride.pickup_lng, gender: passengerProfile?.gender }}
           dropoff={{ lat: ride.dropoff_lat, lng: ride.dropoff_lng }}
           selectable="none"
         />

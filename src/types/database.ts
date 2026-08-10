@@ -1,4 +1,5 @@
 export type UserRole = "passenger" | "driver";
+export type Gender = "male" | "female";
 
 export type RideStatus =
   | "requested"
@@ -28,6 +29,7 @@ export interface Profile {
   phone: string | null;
   vehicle_info: string | null;
   category_id: string | null;
+  gender: Gender | null;
   rating_avg: number | null;
   rating_count: number;
   avatar_url: string | null;

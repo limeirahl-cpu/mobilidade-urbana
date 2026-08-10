@@ -11,13 +11,21 @@ export interface LatLng {
   lng: number;
 }
 
+export interface PickupPoint extends LatLng {
+  gender?: "male" | "female" | null;
+}
+
+export interface DriverPoint extends LatLng {
+  vehicleType?: "car" | "moto" | null;
+}
+
 export type SelectableTarget = "pickup" | "dropoff" | "none";
 
 interface MapWebViewProps {
   initialCenter: LatLng;
-  pickup?: LatLng | null;
+  pickup?: PickupPoint | null;
   dropoff?: LatLng | null;
-  driverLocation?: LatLng | null;
+  driverLocation?: DriverPoint | null;
   selectable?: SelectableTarget;
   onSelectLocation?: (point: LatLng) => void;
 }

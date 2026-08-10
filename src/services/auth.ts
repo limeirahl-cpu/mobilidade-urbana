@@ -1,5 +1,5 @@
 import { supabase } from "@/services/supabase";
-import type { Profile, UserRole } from "@/types/database";
+import type { Gender, Profile, UserRole } from "@/types/database";
 
 export async function signUp(email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({ email, password });
@@ -35,6 +35,7 @@ interface CreateProfileInput {
   phone?: string;
   vehicleInfo?: string;
   categoryId?: string;
+  gender?: Gender;
 }
 
 export async function createProfile(input: CreateProfileInput): Promise<Profile> {
@@ -47,6 +48,7 @@ export async function createProfile(input: CreateProfileInput): Promise<Profile>
       phone: input.phone ?? null,
       vehicle_info: input.vehicleInfo ?? null,
       category_id: input.categoryId ?? null,
+      gender: input.gender ?? null,
     })
     .select()
     .single();
@@ -67,6 +69,7 @@ interface UpdateProfileInput {
   phone?: string;
   avatarUrl?: string;
   categoryId?: string;
+  gender?: Gender;
 }
 
 export async function updateProfile(id: string, input: UpdateProfileInput): Promise<Profile> {
@@ -75,6 +78,7 @@ export async function updateProfile(id: string, input: UpdateProfileInput): Prom
   if (input.phone !== undefined) patch.phone = input.phone;
   if (input.avatarUrl !== undefined) patch.avatar_url = input.avatarUrl;
   if (input.categoryId !== undefined) patch.category_id = input.categoryId;
+  if (input.gender !== undefined) patch.gender = input.gender;
 
   const { data, error } = await supabase.from("profiles").update(patch).eq("id", id).select().single();
   if (error) throw error;

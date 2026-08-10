@@ -37,7 +37,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 
 export default function PassengerHome() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [center, setCenter] = useState<LatLng>(FALLBACK_CENTER);
   const [pickup, setPickup] = useState<LatLng | null>(null);
   const [pickupLabel, setPickupLabel] = useState<string | null>(null);
@@ -255,7 +255,7 @@ export default function PassengerHome() {
       <View style={StyleSheet.absoluteFillObject}>
         <MapWebView
           initialCenter={center}
-          pickup={pickup}
+          pickup={pickup ? { ...pickup, gender: profile?.gender } : null}
           dropoff={dropoff}
           selectable={selecting}
           onSelectLocation={handleSelectLocation}

@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { createProfile } from "@/services/auth";
 import { fetchActiveCategories } from "@/services/categories";
 import { colors } from "@/theme/colors";
-import type { RideCategory, UserRole } from "@/types/database";
+import type { Gender, RideCategory, UserRole } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
 
 export default function RoleSelect() {
@@ -18,6 +18,7 @@ export default function RoleSelect() {
   const [vehicleInfo, setVehicleInfo] = useState("");
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [gender, setGender] = useState<Gender | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function RoleSelect() {
   async function handleSubmit() {
     if (!session?.user || !role || !fullName.trim()) return;
     if (role === "driver" && !categoryId) return;
+    if (role === "passenger" && !gender) return;
     setSubmitting(true);
     try {
       await createProfile({
@@ -38,6 +40,7 @@ export default function RoleSelect() {
         phone: phone.trim() || undefined,
         vehicleInfo: role === "driver" ? vehicleInfo.trim() || undefined : undefined,
         categoryId: role === "driver" ? categoryId ?? undefined : undefined,
+        gender: role === "passenger" ? gender ?? undefined : undefined,
       });
       await refreshProfile();
       router.replace("/");
@@ -81,6 +84,26 @@ export default function RoleSelect() {
         </TouchableOpacity>
       </View>
 
+      {role === "passenger" && (
+        <>
+          <Text style={styles.sectionLabel}>Gênero</Text>
+          <View style={styles.categoryRow}>
+            <TouchableOpacity
+              style={[styles.categoryChip, gender === "male" && styles.categoryChipActive]}
+              onPress={() => setGender("male")}
+            >
+              <Text style={gender === "male" ? styles.categoryTextActive : styles.categoryText}>Masculino</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.categoryChip, gender === "female" && styles.categoryChipActive]}
+              onPress={() => setGender("female")}
+            >
+              <Text style={gender === "female" ? styles.categoryTextActive : styles.categoryText}>Feminino</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
       {role === "driver" && (
         <>
           <TextInput
@@ -110,7 +133,13 @@ export default function RoleSelect() {
       <TouchableOpacity
         style={styles.button}
         onPress={handleSubmit}
-        disabled={submitting || !role || !fullName.trim() || (role === "driver" && !categoryId)}
+        disabled={
+          submitting ||
+          !role ||
+          !fullName.trim() ||
+          (role === "driver" && !categoryId) ||
+          (role === "passenger" && !gender)
+        }
       >
         {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Continuar</Text>}
       </TouchableOpacity>

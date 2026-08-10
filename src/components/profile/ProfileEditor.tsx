@@ -16,7 +16,7 @@ import { updateProfile } from "@/services/auth";
 import { uploadAvatar } from "@/services/avatar";
 import { fetchActiveCategories } from "@/services/categories";
 import { colors } from "@/theme/colors";
-import type { RideCategory } from "@/types/database";
+import type { Gender, RideCategory } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
 
 export function ProfileEditor() {
@@ -24,6 +24,7 @@ export function ProfileEditor() {
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [categoryId, setCategoryId] = useState(profile?.category_id ?? null);
+  const [gender, setGender] = useState<Gender | null>(profile?.gender ?? null);
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -72,6 +73,7 @@ export function ProfileEditor() {
         fullName: fullName.trim(),
         phone: phone.trim(),
         ...(categoryId ? { categoryId } : {}),
+        ...(gender ? { gender } : {}),
       });
       await refreshProfile();
       Alert.alert("Pronto", "Perfil atualizado.");
@@ -116,6 +118,26 @@ export function ProfileEditor() {
         value={phone}
         onChangeText={setPhone}
       />
+
+      {profile.role === "passenger" && (
+        <>
+          <Text style={styles.sectionLabel}>Gênero</Text>
+          <View style={styles.categoryRow}>
+            <TouchableOpacity
+              style={[styles.categoryChip, gender === "male" && styles.categoryChipActive]}
+              onPress={() => setGender("male")}
+            >
+              <Text style={gender === "male" ? styles.categoryTextActive : styles.categoryText}>Masculino</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.categoryChip, gender === "female" && styles.categoryChipActive]}
+              onPress={() => setGender("female")}
+            >
+              <Text style={gender === "female" ? styles.categoryTextActive : styles.categoryText}>Feminino</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       {profile.role === "driver" && categories.length > 0 && (
         <>

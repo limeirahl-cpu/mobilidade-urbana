@@ -25,6 +25,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de um proved
    - [`supabase/migrations/0008_profile_extras.sql`](supabase/migrations/0008_profile_extras.sql)
    - [`supabase/migrations/0009_coupons.sql`](supabase/migrations/0009_coupons.sql)
    - [`supabase/migrations/0010_payment_method.sql`](supabase/migrations/0010_payment_method.sql)
+   - [`supabase/migrations/0011_profile_gender.sql`](supabase/migrations/0011_profile_gender.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -69,7 +70,7 @@ Vai aparecer um QR code. Abra o app **Expo Go** (Android/iOS, disponível na loj
 
 Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo tempo (ex: seu celular com Expo Go + um simulador, ou dois simuladores):
 
-1. **Dispositivo A**: cadastre-se, escolha "Sou passageiro".
+1. **Dispositivo A**: cadastre-se, escolha "Sou passageiro" e um gênero (Masculino/Feminino) — define qual boneco aparece no mapa.
 2. **Dispositivo B**: cadastre-se, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico), e ative o toggle **Online**.
 3. **A**: toque em "Para onde vamos?". No destino, digite um endereço no campo de busca e escolha um resultado (ou toque direto no mapa). Escolha uma categoria entre os cartões de preço e uma forma de pagamento — o botão "Pedir corrida" só habilita depois dos dois. Se marcar uma categoria diferente da que o motorista B escolheu (ex: passageiro pede Moto, motorista está em Econômico), B não deve ver a corrida.
 4. **B**: a corrida deve aparecer no cartão em poucos segundos — toque em "Aceitar".
@@ -86,5 +87,6 @@ Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo t
 15. Em "Meus endereços" (A), adicione um endereço "Trabalho"; volte pra tela inicial, toque em "Para onde vamos?" e confirme que ele aparece como chip — tocar nele já marca o destino sem precisar tocar no mapa.
 16. Depois de concluir uma corrida, toque na estrela do card do motorista pra favoritar; abra "Motoristas favoritos" (dentro de Perfil) e confirme que ele aparece lá.
 17. Numa corrida nova, no sheet de categoria, digite `BEMVINDO10` no campo de cupom e toque em "Aplicar" — a tarifa final deve cair 10%. Peça a corrida e confirme na tela de detalhe (e no histórico) que aparece "Cupom aplicado: -R$X".
+18. Confirme os ícones do mapa: o marcador de embarque mostra o boneco (👨/👩) pulsando conforme o gênero escolhido por A; depois que B aceita, o marcador dele mostra 🚗 (categorias Econômico/Conforto) ou 🏍️ (categoria Moto) e desliza suavemente ao mover a localização, em vez de saltar.
 
 Se algo travar, o primeiro lugar para olhar é o terminal onde `npx expo start` está rodando — os erros de JavaScript aparecem ali.

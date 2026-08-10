@@ -13,10 +13,27 @@ export const mapboxMapHtml = `
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
   <style>
     body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; }
-    .rm-marker { width: 22px; height: 22px; border-radius: 11px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
-    .rm-marker-pickup { background: #16a34a; }
-    .rm-marker-dropoff { background: #dc2626; }
-    .rm-marker-driver { background: #2563eb; }
+    .rm-dot { width: 22px; height: 22px; border-radius: 11px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+    .rm-dot-dropoff { background: #dc2626; }
+    .rm-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 17px;
+      background: #fff;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      line-height: 1;
+    }
+    .rm-pulse { animation: rm-pulse 1.6s ease-in-out infinite; }
+    @keyframes rm-pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
   </style>
 </head>
 <body>
@@ -32,22 +49,83 @@ export const mapboxMapHtml = `
       }
     }
 
-    function makeMarkerEl(kind) {
+    function personIcon(gender) {
+      if (gender === 'male') return '\u{1F468}';
+      if (gender === 'female') return '\u{1F469}';
+      return '\u{1F9D1}';
+    }
+
+    function vehicleIcon(vehicleType) {
+      return vehicleType === 'moto' ? '\u{1F3CD}\u{FE0F}' : '\u{1F697}';
+    }
+
+    function makeDropoffEl() {
       const el = document.createElement('div');
-      el.className = 'rm-marker rm-marker-' + kind;
+      el.className = 'rm-dot rm-dot-dropoff';
       return el;
     }
 
-    function setMarker(kind, point) {
-      if (markers[kind]) {
-        markers[kind].remove();
-        markers[kind] = null;
+    function makeIconEl(icon) {
+      const el = document.createElement('div');
+      el.className = 'rm-icon rm-pulse';
+      el.textContent = icon;
+      return el;
+    }
+
+    function animateMarkerTo(marker, toLngLat) {
+      const from = marker.getLngLat();
+      const fromArr = [from.lng, from.lat];
+      const duration = 800;
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const lng = fromArr[0] + (toLngLat[0] - fromArr[0]) * t;
+        const lat = fromArr[1] + (toLngLat[1] - fromArr[1]) * t;
+        marker.setLngLat([lng, lat]);
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function setDropoffMarker(point) {
+      if (markers.dropoff) {
+        markers.dropoff.remove();
+        markers.dropoff = null;
       }
       if (point) {
-        markers[kind] = new mapboxgl.Marker({ element: makeMarkerEl(kind) })
+        markers.dropoff = new mapboxgl.Marker({ element: makeDropoffEl() })
           .setLngLat([point.lng, point.lat])
           .addTo(map);
       }
+    }
+
+    function setPickupMarker(point) {
+      if (markers.pickup) {
+        markers.pickup.remove();
+        markers.pickup = null;
+      }
+      if (point) {
+        markers.pickup = new mapboxgl.Marker({ element: makeIconEl(personIcon(point.gender)) })
+          .setLngLat([point.lng, point.lat])
+          .addTo(map);
+      }
+    }
+
+    function setDriverMarker(point) {
+      if (!point) {
+        if (markers.driver) {
+          markers.driver.remove();
+          markers.driver = null;
+        }
+        return;
+      }
+      if (markers.driver) {
+        animateMarkerTo(markers.driver, [point.lng, point.lat]);
+        return;
+      }
+      markers.driver = new mapboxgl.Marker({ element: makeIconEl(vehicleIcon(point.vehicleType)) })
+        .setLngLat([point.lng, point.lat])
+        .addTo(map);
     }
 
     function handleMessage(raw) {
@@ -77,9 +155,9 @@ export const mapboxMapHtml = `
       if (!map) return;
 
       if (msg.type === 'setMarkers') {
-        setMarker('pickup', msg.pickup);
-        setMarker('dropoff', msg.dropoff);
-        setMarker('driver', msg.driver);
+        setPickupMarker(msg.pickup);
+        setDropoffMarker(msg.dropoff);
+        setDriverMarker(msg.driver);
         return;
       }
 
