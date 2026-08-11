@@ -64,11 +64,10 @@ export async function startHeadingToPickup(rideId: string): Promise<void> {
 // arriving -> in_progress only happens via ridePin.ts's startRideWithPin()
 // RPC now — the RLS policy no longer allows a plain client update for it.
 
+/** Via RPC: calcula platform_fee/driver_earnings atomicamente a partir da
+ * comissão da categoria — o cliente nunca escreve esses valores direto. */
 export async function completeRide(rideId: string): Promise<void> {
-  const { error } = await supabase
-    .from("rides")
-    .update({ status: "completed", completed_at: new Date().toISOString() })
-    .eq("id", rideId);
+  const { error } = await supabase.rpc("complete_ride", { p_ride_id: rideId });
   if (error) throw error;
 }
 

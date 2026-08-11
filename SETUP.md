@@ -32,6 +32,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de uma API k
    - [`supabase/migrations/0015_cancellation_reason.sql`](supabase/migrations/0015_cancellation_reason.sql)
    - [`supabase/migrations/0016_ride_offers.sql`](supabase/migrations/0016_ride_offers.sql)
    - [`supabase/migrations/0017_driver_verification.sql`](supabase/migrations/0017_driver_verification.sql)
+   - [`supabase/migrations/0018_ride_earnings.sql`](supabase/migrations/0018_ride_earnings.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 

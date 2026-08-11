@@ -19,6 +19,7 @@ export interface RideCategory {
   min_fare: number;
   surge_multiplier: number;
   capacity_passengers: number;
+  commission_rate: number;
   active: boolean;
   sort_order: number;
 }
@@ -131,6 +132,8 @@ export interface Ride {
   cancelled_at: string | null;
   cancelled_by: string | null;
   cancellation_reason: string | null;
+  platform_fee: number | null;
+  driver_earnings: number | null;
 }
 
 export type RideOfferStatus = "pending" | "accepted" | "rejected";
