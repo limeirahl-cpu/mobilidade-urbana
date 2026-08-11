@@ -53,6 +53,12 @@ export async function createRide(input: CreateRideInput): Promise<Ride> {
     .single();
 
   if (error) throw error;
+
+  // Fire-and-forget: avisa motoristas online da categoria por push,
+  // mesmo com o app deles em segundo plano. Uma falha aqui não deve
+  // impedir a corrida de ser criada — só perde o aviso.
+  supabase.functions.invoke("notify-drivers-new-ride", { body: { rideId: data.id } }).catch(() => {});
+
   return data;
 }
 

@@ -33,6 +33,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de uma API k
    - [`supabase/migrations/0016_ride_offers.sql`](supabase/migrations/0016_ride_offers.sql)
    - [`supabase/migrations/0017_driver_verification.sql`](supabase/migrations/0017_driver_verification.sql)
    - [`supabase/migrations/0018_ride_earnings.sql`](supabase/migrations/0018_ride_earnings.sql)
+   - [`supabase/migrations/0019_driver_push_tokens.sql`](supabase/migrations/0019_driver_push_tokens.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -96,7 +97,15 @@ passos que o normal:
    (O `PROJECT-REF` é o final da sua Project URL, ex: `xxxxx` de `https://xxxxx.supabase.co`.) Se preferir não instalar a CLI, dá pra criar as duas functions colando o código direto no painel do Supabase, em **Edge Functions → Deploy a new function** — o secret se configura em **Edge Functions → Secrets**, do mesmo jeito.
 4. Pra testar pagamentos de verdade sem gastar dinheiro, crie um **comprador de teste** em **Suas integrações → Contas de teste** e use o e-mail/senha dele na hora de pagar dentro do checkout do Mercado Pago.
 
-## 6. Preencher o `.env`
+## 6. Publicar a Edge Function de notificação (push de corrida nova)
+
+Motorista online recebe uma notificação push (mesmo com o app em segundo plano) quando surge uma corrida na categoria dele. Isso é mais uma Edge Function — sem secret novo pra configurar, só publicar:
+```bash
+supabase functions deploy notify-drivers-new-ride
+```
+Push só funciona em **dispositivo físico** (Android/iOS de verdade) — simulador/emulador não recebe notificação push do Expo. Pra testar: motorista fica online num aparelho físico, trava a tela, e pede uma corrida do outro dispositivo — a notificação deve aparecer mesmo com o app fechado.
+
+## 7. Preencher o `.env`
 
 Na raiz do projeto, copie [`​.env.example`](.env.example) para um arquivo chamado `.env` e preencha com os valores que você anotou:
 
@@ -106,7 +115,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-aqui
 EXPO_PUBLIC_GOOGLE_MAPS_KEY=sua-chave-do-google-maps-aqui
 ```
 
-## 7. Rodar o app
+## 8. Rodar o app
 
 No terminal, dentro da pasta do projeto:
 
@@ -117,14 +126,15 @@ npx expo start
 
 Vai aparecer um QR code. Abra o app **Expo Go** (Android/iOS, disponível na loja de apps) no celular e escaneie o QR code — ou pressione `i`/`a` no terminal para abrir num simulador iOS/Android, se você tiver um instalado.
 
-## 8. Testar o fluxo completo
+## 9. Testar o fluxo completo
 
 Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo tempo (ex: seu celular com Expo Go + um simulador, ou dois simuladores):
 
 1. **Dispositivo A**: digite um telefone, toque em "Enviar código" — a tela seguinte mostra um aviso "Modo de teste — código: XXXX" (é mockado, não chega SMS de verdade ainda). Digite esse código, confirme, escolha "Sou passageiro" e um gênero (Masculino/Feminino) — define qual boneco aparece no mapa.
 2. **Dispositivo B**: repita com outro telefone, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico). Tente ativar o toggle **Online** — deve aparecer um aviso pedindo pra enviar documentos primeiro. Toque em "Enviar documentos", suba as 3 fotos (podem ser qualquer imagem da galeria pra teste) e a placa, e envie. Aprove manualmente pelo SQL Editor (nota da seção 2 acima) — só depois disso o toggle Online libera de verdade. Saia e entre de novo com o mesmo telefone — deve pular direto pra tela inicial, sem passar pelo cadastro de novo.
 3. **A**: toque em "Para onde vamos?". No destino, digite um endereço e escolha uma sugestão do Google Places (ou toque direto no mapa). Confirme que uma linha de rota real aparece entre embarque e destino (não só os dois marcadores). Escolha uma categoria entre os cartões — cada um mostra preço, capacidade (👤) e o tempo até o motorista mais próximo daquela categoria (ou "Sem motoristas" se B ainda não estiver online nela) — e uma forma de pagamento; o botão "Continuar" só habilita depois dos dois.
-3b. **A**: na tela de preço, teste os botões "−"/"+" (travados na faixa de ±20%) e toque no valor pra digitar direto. Toque em "Solicitar viagem" — isso já cria a corrida de verdade (é o que a torna visível pro motorista) e mostra a animação de radar ("Procurando motoristas...") até a primeira proposta chegar.
+3a. Se estiver testando push notification, trave a tela do dispositivo B (ou minimize o app) antes do próximo passo — a notificação só faz sentido testar assim, com o app em segundo plano.
+3b. **A**: na tela de preço, teste os botões "−"/"+" (travados na faixa de ±20%) e toque no valor pra digitar direto. Toque em "Solicitar viagem" — isso já cria a corrida de verdade (é o que a torna visível pro motorista) e mostra a animação de radar ("Procurando motoristas...") até a primeira proposta chegar. Em B (dispositivo físico), deve chegar uma notificação push de corrida nova mesmo com o app em segundo plano.
 3c. **B**: a corrida deve aparecer no cartão em poucos segundos, mostrando o valor pedido pelo passageiro. Ajuste o preço com os botões "−"/"+" se quiser propor outro valor, e toque em "Enviar proposta" — a tela deve mostrar "Proposta enviada, aguardando o passageiro...".
 3d. **A**: assim que B enviar a proposta, a tela sai do radar e mostra o cartão dele (nome, nota, veículo, preço). Toque em "Aceitar" — deve navegar pra tela de confirmação com o resumo da corrida (categoria, distância, preço acordado).
 3e. **A**: escolhendo "Pix" ou "Cartão de crédito/débito" como forma de pagamento, ao tocar em "Confirmar corrida" deve abrir o checkout do Mercado Pago **dentro do próprio app** (WebView em modal, sem sair pro navegador do sistema) — pague com um comprador de teste do Mercado Pago. Ao voltar (o app detecta o redirecionamento sozinho), a corrida só avança depois que o pagamento aparecer como aprovado (tela mostra "Aguardando confirmação do pagamento..." enquanto isso); se for recusado, a corrida é cancelada automaticamente. Repita escolhendo "Dinheiro" e confirme que pula direto pra confirmação, sem abrir nenhum checkout.
@@ -135,6 +145,7 @@ Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo t
 8. **B**: toque em "Seguir para o embarque". Na tela do passageiro (A) deve aparecer um PIN de 4 dígitos.
 9. **B**: tente iniciar a corrida com um PIN errado — deve dar erro "PIN incorreto" sem avançar. Digite o PIN certo (o que aparece na tela de A) — a corrida deve avançar para "em andamento".
 10. **B**: toque em "Concluir corrida".
+10b. **B**: abra "Ganhos" — a corrida concluída deve entrar no total de hoje, com "A receber" (se foi Pix/cartão) ou "Comissão devida" (se foi dinheiro) batendo com a `commission_rate` da categoria (20% por padrão). Confira também pelo SQL Editor que `rides.platform_fee`/`driver_earnings` foram preenchidos.
 11. **A**: deve ver a tela de conclusão com o resumo da tarifa — avalie o motorista com estrelas e um comentário.
 12. **B**: avalie o passageiro também.
 13. Nos dois lados, toque em "Histórico" na tela inicial e confirme que a corrida concluída aparece na lista.
@@ -144,5 +155,6 @@ Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo t
 17. Depois de concluir uma corrida, toque na estrela do card do motorista pra favoritar; abra "Motoristas favoritos" (dentro de Perfil) e confirme que ele aparece lá.
 18. Numa corrida nova, no sheet de categoria, digite `BEMVINDO10` no campo de cupom e toque em "Aplicar" — a tarifa final deve cair 10%. Peça a corrida e confirme na tela de detalhe (e no histórico) que aparece "Cupom aplicado: -R$X".
 19. Confirme os ícones do mapa: o marcador de embarque mostra o boneco (👨/👩) pulsando conforme o gênero escolhido por A; depois que B aceita, o marcador dele mostra 🚗 (categorias Econômico/Conforto) ou 🏍️ (categoria Moto) e desliza suavemente ao mover a localização, em vez de saltar.
+20. Numa corrida nova, cancele pelo lado de B (ou A) antes de concluir — deve aparecer o seletor de motivo antes de confirmar. Confira no histórico ou pelo SQL Editor que `rides.cancellation_reason` foi salvo com o motivo escolhido.
 
 Se algo travar, o primeiro lugar para olhar é o terminal onde `npx expo start` está rodando — os erros de JavaScript aparecem ali.

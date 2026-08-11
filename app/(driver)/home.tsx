@@ -12,6 +12,7 @@ import { useDriverStatus } from "@/hooks/useDriverStatus";
 import { useIncomingRideRequests } from "@/hooks/useIncomingRideRequests";
 import { signOut } from "@/services/auth";
 import { setOnline } from "@/services/driverStatus";
+import { registerAndSavePushToken } from "@/services/pushNotifications";
 import { createRideOffer, listenForOfferStatus } from "@/services/rideOffers";
 import { colors } from "@/theme/colors";
 import { getErrorMessage } from "@/utils/errors";
@@ -59,6 +60,9 @@ export default function DriverHome() {
     }
     try {
       await setOnline(value);
+      if (value) {
+        registerAndSavePushToken(driverId).catch(() => {});
+      }
     } catch (err) {
       Alert.alert("Erro", getErrorMessage(err));
     }

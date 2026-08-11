@@ -103,6 +103,7 @@ export interface DriverStatus {
   current_lat: number | null;
   current_lng: number | null;
   heading: number | null;
+  push_token: string | null;
   updated_at: string;
 }
 
