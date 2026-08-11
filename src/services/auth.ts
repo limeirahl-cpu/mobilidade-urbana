@@ -63,6 +63,7 @@ interface CreateProfileInput {
   vehicleInfo?: string;
   categoryId?: string;
   gender?: Gender;
+  termsAccepted: boolean;
 }
 
 export async function createProfile(input: CreateProfileInput): Promise<Profile> {
@@ -77,6 +78,7 @@ export async function createProfile(input: CreateProfileInput): Promise<Profile>
       vehicle_info: input.vehicleInfo ?? null,
       category_id: input.categoryId ?? null,
       gender: input.gender ?? null,
+      terms_accepted_at: input.termsAccepted ? new Date().toISOString() : null,
     })
     .select()
     .single();

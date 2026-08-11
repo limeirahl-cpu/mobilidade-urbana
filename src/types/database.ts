@@ -45,6 +45,7 @@ export interface Profile {
   vehicle_plate: string | null;
   verification_status: DriverVerificationStatus;
   verification_notes: string | null;
+  terms_accepted_at: string | null;
   created_at: string;
 }
 

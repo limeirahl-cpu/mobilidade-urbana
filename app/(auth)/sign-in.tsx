@@ -28,10 +28,10 @@ export default function SignIn() {
   const [step, setStep] = useState<Step>("phone");
   const [phoneInput, setPhoneInput] = useState("");
   const [otp, setOtp] = useState("");
-  const [devCode, setDevCode] = useState<string | null>(null);
   const [resendAvailableAt, setResendAvailableAt] = useState(0);
   const [now, setNow] = useState(Date.now());
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [sendingCode, setSendingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -43,33 +43,41 @@ export default function SignIn() {
   const phoneE164 = toE164BR(phoneInput);
   const resendCooldownSeconds = Math.max(0, Math.ceil((resendAvailableAt - now) / 1000));
 
-  function requestCode() {
-    const { code, cooldownMs } = sendVerificationCode(phoneE164);
-    setDevCode(code);
-    setResendAvailableAt(Date.now() + cooldownMs);
-    setNow(Date.now());
+  async function requestCode() {
+    setSendingCode(true);
+    try {
+      const { cooldownMs } = await sendVerificationCode(phoneE164);
+      setResendAvailableAt(Date.now() + cooldownMs);
+      setNow(Date.now());
+      return true;
+    } catch (err) {
+      Alert.alert("Erro ao enviar código", getErrorMessage(err));
+      return false;
+    } finally {
+      setSendingCode(false);
+    }
   }
 
-  function handleSendCode() {
+  async function handleSendCode() {
     if (!isValidBRPhone(phoneInput)) return;
     setOtp("");
     setOtpError(null);
-    requestCode();
-    setStep("otp");
+    const sent = await requestCode();
+    if (sent) setStep("otp");
   }
 
-  function handleResend() {
+  async function handleResend() {
     if (resendCooldownSeconds > 0) return;
     setOtp("");
     setOtpError(null);
-    requestCode();
+    await requestCode();
   }
 
   async function handleConfirmCode() {
     setSubmitting(true);
     setOtpError(null);
     try {
-      const result = verifyCode(phoneE164, otp);
+      const result = await verifyCode(phoneE164, otp);
       if (!result.ok) {
         setOtpError(otpFailureMessage(result.reason));
         return;
@@ -109,18 +117,18 @@ export default function SignIn() {
             onChangeText={(t) => setPhoneInput(formatBRPhoneInput(t))}
             maxLength={16}
           />
-          <TouchableOpacity style={styles.button} onPress={handleSendCode} disabled={!isValidBRPhone(phoneInput)}>
-            <Text style={styles.buttonText}>Enviar código</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleSendCode}
+            disabled={!isValidBRPhone(phoneInput) || sendingCode}
+          >
+            {sendingCode ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Enviar código</Text>}
           </TouchableOpacity>
         </>
       ) : (
         <>
           <Text style={styles.title}>Confirme o código</Text>
-          <Text style={styles.subtitle}>Enviamos um código para {formatBRPhoneInput(phoneInput)}</Text>
-
-          <View style={styles.devCodeBanner}>
-            <Text style={styles.devCodeText}>Modo de teste — código: {devCode}</Text>
-          </View>
+          <Text style={styles.subtitle}>Enviamos um SMS com o código para {formatBRPhoneInput(phoneInput)}</Text>
 
           <TextInput
             style={[styles.input, styles.otpInput]}
@@ -141,7 +149,7 @@ export default function SignIn() {
             {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Confirmar</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleResend} disabled={resendCooldownSeconds > 0} style={styles.link}>
+          <TouchableOpacity onPress={handleResend} disabled={resendCooldownSeconds > 0 || sendingCode} style={styles.link}>
             <Text style={resendCooldownSeconds > 0 ? styles.linkTextDisabled : styles.linkText}>
               {resendCooldownSeconds > 0 ? `Reenviar código (${resendCooldownSeconds}s)` : "Reenviar código"}
             </Text>
@@ -165,14 +173,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 4 },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16 },
   otpInput: { fontSize: 22, fontWeight: "800", letterSpacing: 8 },
-  devCodeBanner: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.brandOrange,
-    borderRadius: 8,
-    padding: 10,
-  },
-  devCodeText: { color: colors.textPrimary, fontWeight: "700", textAlign: "center" },
   errorText: { color: colors.danger, fontSize: 13, fontWeight: "600" },
   button: { backgroundColor: colors.brandOrange, borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
   buttonText: { color: colors.white, fontSize: 16, fontWeight: "600" },

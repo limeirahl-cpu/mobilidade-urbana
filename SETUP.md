@@ -34,6 +34,8 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de uma API k
    - [`supabase/migrations/0017_driver_verification.sql`](supabase/migrations/0017_driver_verification.sql)
    - [`supabase/migrations/0018_ride_earnings.sql`](supabase/migrations/0018_ride_earnings.sql)
    - [`supabase/migrations/0019_driver_push_tokens.sql`](supabase/migrations/0019_driver_push_tokens.sql)
+   - [`supabase/migrations/0020_phone_verifications.sql`](supabase/migrations/0020_phone_verifications.sql)
+   - [`supabase/migrations/0021_terms_acceptance.sql`](supabase/migrations/0021_terms_acceptance.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -105,7 +107,22 @@ supabase functions deploy notify-drivers-new-ride
 ```
 Push só funciona em **dispositivo físico** (Android/iOS de verdade) — simulador/emulador não recebe notificação push do Expo. Pra testar: motorista fica online num aparelho físico, trava a tela, e pede uma corrida do outro dispositivo — a notificação deve aparecer mesmo com o app fechado.
 
-## 7. Preencher o `.env`
+## 7. Configurar o SMS real (Zenvia)
+
+O código de verificação de telefone agora é enviado por SMS de verdade — antes disso, ele só aparecia na própria tela ("Modo de teste"), o que não serve pra abrir o app pra gente de fora.
+
+1. Crie uma conta em [zenvia.com](https://www.zenvia.com/) e ative o canal de SMS (costuma ter crédito de teste pra começar).
+2. No painel da Zenvia, gere um **API Token**.
+3. Configure o secret e publique as duas Edge Functions novas:
+   ```bash
+   supabase secrets set ZENVIA_API_TOKEN=seu-token-aqui
+   supabase functions deploy send-verification-code
+   supabase functions deploy verify-phone-code
+   ```
+4. O remetente (`from: "Urbix"`) e o formato exato da chamada em [`supabase/functions/send-verification-code/index.ts`](supabase/functions/send-verification-code/index.ts) foram montados com base no formato geral da API da Zenvia — confira contra a documentação atual da sua conta (**Documentação → SMS** no painel deles) antes do primeiro teste, e ajuste se algo tiver mudado.
+5. Teste mandando um código de verdade pro seu próprio celular na tela de entrada do app — deve chegar um SMS em alguns segundos.
+
+## 8. Preencher o `.env`
 
 Na raiz do projeto, copie [`​.env.example`](.env.example) para um arquivo chamado `.env` e preencha com os valores que você anotou:
 
@@ -115,7 +132,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-aqui
 EXPO_PUBLIC_GOOGLE_MAPS_KEY=sua-chave-do-google-maps-aqui
 ```
 
-## 8. Rodar o app
+## 9. Rodar o app
 
 No terminal, dentro da pasta do projeto:
 
@@ -126,12 +143,12 @@ npx expo start
 
 Vai aparecer um QR code. Abra o app **Expo Go** (Android/iOS, disponível na loja de apps) no celular e escaneie o QR code — ou pressione `i`/`a` no terminal para abrir num simulador iOS/Android, se você tiver um instalado.
 
-## 9. Testar o fluxo completo
+## 10. Testar o fluxo completo
 
 Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo tempo (ex: seu celular com Expo Go + um simulador, ou dois simuladores):
 
-1. **Dispositivo A**: digite um telefone, toque em "Enviar código" — a tela seguinte mostra um aviso "Modo de teste — código: XXXX" (é mockado, não chega SMS de verdade ainda). Digite esse código, confirme, escolha "Sou passageiro" e um gênero (Masculino/Feminino) — define qual boneco aparece no mapa.
-2. **Dispositivo B**: repita com outro telefone, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico). Tente ativar o toggle **Online** — deve aparecer um aviso pedindo pra enviar documentos primeiro. Toque em "Enviar documentos", suba as 3 fotos (podem ser qualquer imagem da galeria pra teste) e a placa, e envie. Aprove manualmente pelo SQL Editor (nota da seção 2 acima) — só depois disso o toggle Online libera de verdade. Saia e entre de novo com o mesmo telefone — deve pular direto pra tela inicial, sem passar pelo cadastro de novo.
+1. **Dispositivo A**: digite um telefone de verdade (o seu), toque em "Enviar código" — deve chegar um SMS real em alguns segundos. Digite o código recebido, confirme, escolha "Sou passageiro" e um gênero (Masculino/Feminino) — define qual boneco aparece no mapa. Marque o checkbox de aceite dos termos (obrigatório pra continuar) antes de tocar em "Continuar".
+2. **Dispositivo B**: repita com outro telefone real, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico), aceite os termos. Tente ativar o toggle **Online** — deve aparecer um aviso pedindo pra enviar documentos primeiro. Toque em "Enviar documentos", suba as 3 fotos (podem ser qualquer imagem da galeria pra teste) e a placa, e envie. Aprove manualmente pelo SQL Editor (nota da seção 2 acima) — só depois disso o toggle Online libera de verdade. Saia e entre de novo com o mesmo telefone — deve pular direto pra tela inicial, sem passar pelo cadastro de novo.
 3. **A**: toque em "Para onde vamos?". No destino, digite um endereço e escolha uma sugestão do Google Places (ou toque direto no mapa). Confirme que uma linha de rota real aparece entre embarque e destino (não só os dois marcadores). Escolha uma categoria entre os cartões — cada um mostra preço, capacidade (👤) e o tempo até o motorista mais próximo daquela categoria (ou "Sem motoristas" se B ainda não estiver online nela) — e uma forma de pagamento; o botão "Continuar" só habilita depois dos dois.
 3a. Se estiver testando push notification, trave a tela do dispositivo B (ou minimize o app) antes do próximo passo — a notificação só faz sentido testar assim, com o app em segundo plano.
 3b. **A**: na tela de preço, teste os botões "−"/"+" (travados na faixa de ±20%) e toque no valor pra digitar direto. Toque em "Solicitar viagem" — isso já cria a corrida de verdade (é o que a torna visível pro motorista) e mostra a animação de radar ("Procurando motoristas...") até a primeira proposta chegar. Em B (dispositivo físico), deve chegar uma notificação push de corrida nova mesmo com o app em segundo plano.

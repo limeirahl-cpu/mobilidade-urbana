@@ -20,6 +20,7 @@ export default function RoleSelect() {
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [gender, setGender] = useState<Gender | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export default function RoleSelect() {
   }, []);
 
   async function handleSubmit() {
-    if (!session?.user || !role || !fullName.trim()) return;
+    if (!session?.user || !role || !fullName.trim() || !termsAccepted) return;
     if (role === "driver" && !categoryId) return;
     if (role === "passenger" && !gender) return;
     setSubmitting(true);
@@ -42,6 +43,7 @@ export default function RoleSelect() {
         vehicleInfo: role === "driver" ? vehicleInfo.trim() || undefined : undefined,
         categoryId: role === "driver" ? categoryId ?? undefined : undefined,
         gender: role === "passenger" ? gender ?? undefined : undefined,
+        termsAccepted,
       });
       await refreshProfile();
       router.replace("/");
@@ -130,6 +132,18 @@ export default function RoleSelect() {
         </>
       )}
 
+      <TouchableOpacity style={styles.termsRow} onPress={() => setTermsAccepted((v) => !v)}>
+        <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+          {termsAccepted && <Text style={styles.checkboxMark}>✓</Text>}
+        </View>
+        <Text style={styles.termsText}>
+          Li e aceito os{" "}
+          <Text style={styles.termsLink} onPress={() => router.push("/(auth)/terms")}>
+            Termos de Uso e a Política de Privacidade
+          </Text>
+        </Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={styles.button}
         onPress={handleSubmit}
@@ -137,6 +151,7 @@ export default function RoleSelect() {
           submitting ||
           !role ||
           !fullName.trim() ||
+          !termsAccepted ||
           (role === "driver" && !categoryId) ||
           (role === "passenger" && !gender)
         }
@@ -187,4 +202,18 @@ const styles = StyleSheet.create({
   categoryTextActive: { color: colors.black, fontWeight: "700" },
   button: { backgroundColor: colors.brandOrange, borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
   buttonText: { color: colors.white, fontSize: 16, fontWeight: "600" },
+  termsRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: { backgroundColor: colors.brandGreen, borderColor: colors.brandGreen },
+  checkboxMark: { color: colors.black, fontWeight: "800", fontSize: 14 },
+  termsText: { flex: 1, fontSize: 13, color: colors.textSecondary },
+  termsLink: { color: colors.info, fontWeight: "700" },
 });
