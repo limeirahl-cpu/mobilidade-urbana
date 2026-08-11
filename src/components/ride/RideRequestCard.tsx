@@ -5,22 +5,32 @@ import { fetchCategoryById } from "@/services/categories";
 import { colors } from "@/theme/colors";
 import type { Ride } from "@/types/database";
 
+const PRICE_STEP = 1;
+
 export function RideRequestCard({
   ride,
-  onAccept,
-  accepting,
+  onSubmitOffer,
+  submitting,
 }: {
   ride: Ride;
-  onAccept: () => void;
-  accepting: boolean;
+  onSubmitOffer: (price: number) => void;
+  submitting: boolean;
 }) {
   const [categoryLabel, setCategoryLabel] = useState<string | null>(null);
+  const suggested = ride.suggested_fare ?? 0;
+  const [price, setPrice] = useState(suggested);
 
   useEffect(() => {
     fetchCategoryById(ride.category_id)
       .then((c) => setCategoryLabel(c?.label ?? null))
       .catch(() => setCategoryLabel(null));
   }, [ride.category_id]);
+
+  // Corrida nova chegou (ou a lista rolou pra outra) — reseta o valor
+  // proposto pro sugerido pelo passageiro.
+  useEffect(() => {
+    setPrice(ride.suggested_fare ?? 0);
+  }, [ride.id, ride.suggested_fare]);
 
   return (
     <View style={styles.card}>
@@ -31,17 +41,30 @@ export function RideRequestCard({
       <Text style={styles.label}>
         Destino: {ride.dropoff_lat.toFixed(4)}, {ride.dropoff_lng.toFixed(4)}
       </Text>
-      {ride.estimated_distance_km != null && ride.estimated_fare != null && (
-        <Text style={styles.fare}>
-          {ride.estimated_distance_km.toFixed(1)} km · R$ {ride.estimated_fare.toFixed(2)}
-        </Text>
+      {ride.estimated_distance_km != null && (
+        <Text style={styles.distance}>{ride.estimated_distance_km.toFixed(1)} km</Text>
       )}
-      <TouchableOpacity style={styles.acceptButton} onPress={onAccept} disabled={accepting}>
-        {accepting ? (
-          <ActivityIndicator color={colors.black} />
-        ) : (
-          <Text style={styles.acceptText}>Aceitar</Text>
-        )}
+
+      <Text style={styles.suggestedLabel}>Passageiro pediu R$ {suggested.toFixed(2)}</Text>
+
+      <View style={styles.priceRow}>
+        <TouchableOpacity
+          style={styles.stepButton}
+          onPress={() => setPrice((p) => Math.max(1, Math.round((p - PRICE_STEP) * 100) / 100))}
+        >
+          <Text style={styles.stepButtonText}>−</Text>
+        </TouchableOpacity>
+        <Text style={styles.price}>R$ {price.toFixed(2)}</Text>
+        <TouchableOpacity
+          style={styles.stepButton}
+          onPress={() => setPrice((p) => Math.round((p + PRICE_STEP) * 100) / 100)}
+        >
+          <Text style={styles.stepButtonText}>+</Text>
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity style={styles.acceptButton} onPress={() => onSubmitOffer(price)} disabled={submitting}>
+        {submitting ? <ActivityIndicator color={colors.black} /> : <Text style={styles.acceptText}>Enviar proposta</Text>}
       </TouchableOpacity>
     </View>
   );
@@ -61,7 +84,19 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   label: { fontSize: 13, color: colors.textSecondary },
-  fare: { fontSize: 18, fontWeight: "800", color: colors.textPrimary, marginTop: 4 },
+  distance: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  suggestedLabel: { fontSize: 13, fontWeight: "600", color: colors.textPrimary, marginTop: 8 },
+  priceRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 6 },
+  stepButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepButtonText: { fontSize: 20, fontWeight: "700", color: colors.textPrimary },
+  price: { fontSize: 22, fontWeight: "800", color: colors.textPrimary, minWidth: 100, textAlign: "center" },
   acceptButton: {
     backgroundColor: colors.brandGreen,
     borderRadius: 10,

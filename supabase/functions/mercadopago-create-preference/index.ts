@@ -17,6 +17,7 @@ interface RequestBody {
   amount: number;
   description: string;
   method: "pix" | "cartao_credito" | "cartao_debito";
+  rideId: string;
 }
 
 Deno.serve(async (req) => {
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
     }
 
     const body: RequestBody = await req.json();
-    if (!body.amount || body.amount <= 0 || !body.method) {
+    if (!body.amount || body.amount <= 0 || !body.method || !body.rideId) {
       return new Response(JSON.stringify({ error: "Dados inválidos" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -64,7 +65,13 @@ Deno.serve(async (req) => {
 
     const { data: payment, error: insertError } = await adminClient
       .from("payments")
-      .insert({ user_id: user.id, amount: body.amount, payment_method: body.method, status: "pending" })
+      .insert({
+        user_id: user.id,
+        ride_id: body.rideId,
+        amount: body.amount,
+        payment_method: body.method,
+        status: "pending",
+      })
       .select()
       .single();
     if (insertError) throw insertError;

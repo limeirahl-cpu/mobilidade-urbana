@@ -14,10 +14,11 @@ interface CreatePreferenceResult {
 export async function createPaymentPreference(
   amount: number,
   description: string,
-  method: RealPaymentMethod
+  method: RealPaymentMethod,
+  rideId: string
 ): Promise<CreatePreferenceResult> {
   const { data, error } = await supabase.functions.invoke("mercadopago-create-preference", {
-    body: { amount, description, method },
+    body: { amount, description, method, rideId },
   });
   if (error) throw error;
   return data;

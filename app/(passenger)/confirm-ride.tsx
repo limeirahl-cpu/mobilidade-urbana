@@ -1,45 +1,40 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { PaymentCheckoutModal } from "@/components/payment/PaymentCheckoutModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchCategoryById } from "@/services/categories";
 import { createPaymentPreference, needsRealPayment, waitForPaymentApproval } from "@/services/payments";
 import { createPinForRide } from "@/services/ridePin";
-import { createRide } from "@/services/rides";
+import { cancelRide, fetchRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
+import type { Ride, RideCategory } from "@/types/database";
 import { getErrorMessage } from "@/utils/errors";
 import { getPaymentMethodLabel } from "@/utils/paymentMethods";
 
 export default function ConfirmRide() {
   const router = useRouter();
   const { session } = useAuth();
-  const params = useLocalSearchParams<{
-    pickupLat: string;
-    pickupLng: string;
-    pickupLabel: string;
-    dropoffLat: string;
-    dropoffLng: string;
-    dropoffLabel: string;
-    categoryId: string;
-    categoryLabel: string;
-    paymentMethod: string;
-    distanceKm: string;
-    durationMin: string;
-    couponId: string;
-    discountAmount: string;
-    finalFare: string;
-    suggestedFare: string;
-  }>();
+  const { rideId } = useLocalSearchParams<{ rideId: string }>();
 
+  const [ride, setRide] = useState<Ride | null>(null);
+  const [category, setCategory] = useState<RideCategory | null>(null);
+  const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [checkoutInitPoint, setCheckoutInitPoint] = useState<string | null>(null);
   const cancelWaiterRef = useRef<(() => void) | null>(null);
 
-  const finalFare = Number(params.finalFare);
-  const suggestedFare = params.suggestedFare ? Number(params.suggestedFare) : null;
-  const paymentLabel = getPaymentMethodLabel(params.paymentMethod) ?? params.paymentMethod;
+  useEffect(() => {
+    if (!rideId) return;
+    fetchRide(rideId)
+      .then((r) => {
+        setRide(r);
+        if (r) fetchCategoryById(r.category_id).then(setCategory).catch(() => setCategory(null));
+      })
+      .finally(() => setLoading(false));
+  }, [rideId]);
 
   function handleCheckoutReturn() {
     setCheckoutInitPoint(null);
@@ -52,15 +47,17 @@ export default function ConfirmRide() {
   }
 
   async function handleConfirm() {
-    if (!session?.user) return;
+    if (!ride || !session?.user) return;
     setConfirming(true);
     try {
-      if (needsRealPayment(params.paymentMethod)) {
+      const method = ride.payment_method;
+      if (method && needsRealPayment(method)) {
         setStatusText("Abrindo pagamento...");
         const { initPoint, paymentId } = await createPaymentPreference(
-          finalFare,
-          `Corrida Urbix — ${params.categoryLabel}`,
-          params.paymentMethod
+          ride.estimated_fare ?? 0,
+          `Corrida Urbix — ${category?.label ?? ""}`,
+          method,
+          ride.id
         );
         const waiter = waitForPaymentApproval(paymentId);
         cancelWaiterRef.current = waiter.cancel;
@@ -68,31 +65,18 @@ export default function ConfirmRide() {
         const approved = await waiter.promise;
         cancelWaiterRef.current = null;
         if (!approved) {
-          Alert.alert("Pagamento não aprovado", "Tente novamente ou escolha outra forma de pagamento.");
+          await cancelRide(ride.id, session.user.id, "Pagamento não aprovado").catch(() => {});
+          Alert.alert("Pagamento não aprovado", "A corrida foi cancelada. Você pode tentar pedir de novo.");
+          router.replace("/(passenger)/home");
           return;
         }
       }
 
       setStatusText("Confirmando corrida...");
-      const ride = await createRide({
-        passengerId: session.user.id,
-        categoryId: params.categoryId,
-        paymentMethod: params.paymentMethod,
-        pickup: { lat: Number(params.pickupLat), lng: Number(params.pickupLng) },
-        dropoff: { lat: Number(params.dropoffLat), lng: Number(params.dropoffLng) },
-        pickupAddress: params.pickupLabel || undefined,
-        dropoffAddress: params.dropoffLabel || undefined,
-        distanceKm: Number(params.distanceKm),
-        durationMin: Number(params.durationMin),
-        fare: finalFare,
-        suggestedFare: suggestedFare ?? undefined,
-        couponId: params.couponId || undefined,
-        discountAmount: params.discountAmount ? Number(params.discountAmount) : undefined,
-      });
       await createPinForRide(ride.id);
       router.replace(`/(passenger)/ride/${ride.id}`);
     } catch (err) {
-      Alert.alert("Erro ao pedir corrida", getErrorMessage(err));
+      Alert.alert("Erro ao confirmar corrida", getErrorMessage(err));
     } finally {
       setConfirming(false);
       setStatusText(null);
@@ -100,51 +84,60 @@ export default function ConfirmRide() {
     }
   }
 
+  if (loading || !ride) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  const finalFare = ride.estimated_fare ?? 0;
+  const paymentLabel = getPaymentMethodLabel(ride.payment_method) ?? ride.payment_method;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>‹ Voltar</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>Confirmar corrida</Text>
-        <View style={{ width: 60 }} />
       </View>
 
       <View style={styles.content}>
         <View style={styles.card}>
           <View style={styles.row}>
             <View style={[styles.dot, { backgroundColor: colors.success }]} />
-            <Text style={styles.rowText}>{params.pickupLabel || "Ponto de embarque"}</Text>
+            <Text style={styles.rowText}>{ride.pickup_address || "Ponto de embarque"}</Text>
           </View>
           <View style={styles.row}>
             <View style={[styles.dot, { backgroundColor: colors.danger }]} />
-            <Text style={styles.rowText}>{params.dropoffLabel || "Ponto de destino"}</Text>
+            <Text style={styles.rowText}>{ride.dropoff_address || "Ponto de destino"}</Text>
           </View>
         </View>
 
         <View style={styles.card}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Categoria</Text>
-            <Text style={styles.summaryValue}>{params.categoryLabel}</Text>
+            <Text style={styles.summaryValue}>{category?.label ?? "—"}</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Distância</Text>
-            <Text style={styles.summaryValue}>
-              {Number(params.distanceKm).toFixed(1)} km · {Math.round(Number(params.durationMin))} min
-            </Text>
-          </View>
+          {ride.estimated_distance_km != null && ride.estimated_duration_min != null && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Distância</Text>
+              <Text style={styles.summaryValue}>
+                {ride.estimated_distance_km.toFixed(1)} km · {Math.round(ride.estimated_duration_min)} min
+              </Text>
+            </View>
+          )}
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Forma de pagamento</Text>
             <Text style={styles.summaryValue}>{paymentLabel}</Text>
           </View>
-          {suggestedFare != null && (
+          {ride.suggested_fare != null && (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Valor negociado</Text>
-              <Text style={styles.summaryValue}>R$ {suggestedFare.toFixed(2)}</Text>
+              <Text style={styles.summaryLabel}>Valor pedido</Text>
+              <Text style={styles.summaryValue}>R$ {ride.suggested_fare.toFixed(2)}</Text>
             </View>
           )}
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabelFinal}>Preço final</Text>
+            <Text style={styles.summaryLabelFinal}>Preço acordado</Text>
             <Text style={styles.summaryValueFinal}>R$ {finalFare.toFixed(2)}</Text>
           </View>
         </View>
@@ -173,14 +166,12 @@ export default function ConfirmRide() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     padding: 16,
     paddingTop: 56,
+    alignItems: "center",
   },
-  back: { color: colors.textPrimary, fontWeight: "600", width: 60 },
   title: { fontSize: 18, fontWeight: "800", color: colors.textPrimary },
   content: { padding: 16, gap: 16 },
   card: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, gap: 10 },

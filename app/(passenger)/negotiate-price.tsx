@@ -1,27 +1,30 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Animated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
+import { useAuth } from "@/contexts/AuthContext";
+import { fetchProfile } from "@/services/auth";
+import { acceptRideOffer, listenForRideOffers } from "@/services/rideOffers";
+import { cancelRide, createRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
-import { getNegotiationRange, simulateDriverOffers, type DriverOffer } from "@/utils/priceNegotiation";
+import { getErrorMessage } from "@/utils/errors";
+import { getNegotiationRange } from "@/utils/priceNegotiation";
 
 type Step = "pricing" | "searching" | "offers";
 
 const PRICE_STEP = 1;
-const SEARCH_DELAY_MS = 2000;
-const OFFER_REVEAL_INTERVAL_MS = 900;
+
+interface OfferView {
+  id: string;
+  driverId: string;
+  price: number;
+  name: string;
+  rating: number | null;
+  vehicle: string | null;
+}
 
 // Anéis pulsando estilo "radar" — mesma ideia da animação CSS já usada nos
-// marcadores do mapa (mapboxMapHtml.ts), só que em RN puro, sem lib nova.
+// marcadores do mapa (googleMapsHtml.ts), só que em RN puro, sem lib nova.
 function PulseRing({ delay }: { delay: number }) {
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -44,6 +47,7 @@ function PulseRing({ delay }: { delay: number }) {
 
 export default function NegotiatePrice() {
   const router = useRouter();
+  const { session } = useAuth();
   const params = useLocalSearchParams<{
     pickupLat: string;
     pickupLng: string;
@@ -68,25 +72,38 @@ export default function NegotiatePrice() {
   const [price, setPrice] = useState(estimatedFare);
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceText, setPriceText] = useState("");
-  const [offers, setOffers] = useState<DriverOffer[]>([]);
-  const [visibleCount, setVisibleCount] = useState(0);
+  const [requesting, setRequesting] = useState(false);
+  const [rideId, setRideId] = useState<string | null>(null);
+  const [offers, setOffers] = useState<OfferView[]>([]);
+  const [acceptingOfferId, setAcceptingOfferId] = useState<string | null>(null);
 
+  // Escuta propostas reais de motoristas assim que a corrida existe — fica
+  // ativa em "searching" e "offers" (motoristas continuam podendo propor
+  // até o passageiro aceitar uma). A primeira proposta que chegar já avança
+  // pra tela de ofertas sozinha.
   useEffect(() => {
-    if (step !== "searching") return;
-    const timer = setTimeout(() => {
-      setOffers(simulateDriverOffers(price, params.categoryLabel));
-      setVisibleCount(0);
-      setStep("offers");
-    }, SEARCH_DELAY_MS);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
-  useEffect(() => {
-    if (step !== "offers" || visibleCount >= offers.length) return;
-    const timer = setTimeout(() => setVisibleCount((c) => c + 1), OFFER_REVEAL_INTERVAL_MS);
-    return () => clearTimeout(timer);
-  }, [step, visibleCount, offers.length]);
+    if (!rideId) return;
+    const unsubscribe = listenForRideOffers(rideId, async (offer) => {
+      const profile = await fetchProfile(offer.driver_id).catch(() => null);
+      setOffers((prev) =>
+        prev.some((o) => o.id === offer.id)
+          ? prev
+          : [
+              ...prev,
+              {
+                id: offer.id,
+                driverId: offer.driver_id,
+                price: offer.price,
+                name: profile?.full_name ?? "Motorista",
+                rating: profile?.rating_avg ?? null,
+                vehicle: profile?.vehicle_info ?? null,
+              },
+            ]
+      );
+      setStep((s) => (s === "searching" ? "offers" : s));
+    });
+    return unsubscribe;
+  }, [rideId]);
 
   function clamp(value: number): number {
     return Math.min(range.max, Math.max(range.min, value));
@@ -111,39 +128,72 @@ export default function NegotiatePrice() {
     setEditingPrice(false);
   }
 
-  function handleRequestRide() {
-    setStep("searching");
+  async function handleRequestRide() {
+    if (!session?.user) return;
+    setRequesting(true);
+    try {
+      const ride = await createRide({
+        passengerId: session.user.id,
+        categoryId: params.categoryId,
+        paymentMethod: params.paymentMethod,
+        pickup: { lat: Number(params.pickupLat), lng: Number(params.pickupLng) },
+        dropoff: { lat: Number(params.dropoffLat), lng: Number(params.dropoffLng) },
+        pickupAddress: params.pickupLabel || undefined,
+        dropoffAddress: params.dropoffLabel || undefined,
+        distanceKm: Number(params.distanceKm),
+        durationMin: Number(params.durationMin),
+        suggestedFare: price,
+        couponId: params.couponId || undefined,
+        discountAmount: params.discountAmount ? Number(params.discountAmount) : undefined,
+      });
+      setRideId(ride.id);
+      setStep("searching");
+    } catch (err) {
+      Alert.alert("Erro ao pedir corrida", getErrorMessage(err));
+    } finally {
+      setRequesting(false);
+    }
   }
 
-  function handleCancelSearch() {
-    setStep("pricing");
-  }
-
-  function handleAdjustValue() {
-    setStep("pricing");
+  async function cancelCurrentRide(reason: string) {
+    if (rideId && session?.user) {
+      await cancelRide(rideId, session.user.id, reason).catch(() => {});
+    }
+    setRideId(null);
     setOffers([]);
-    setVisibleCount(0);
   }
 
-  function navigateToConfirm(fare: number, suggestedFare?: number) {
-    router.push({
-      pathname: "/(passenger)/confirm-ride",
-      params: {
-        ...params,
-        finalFare: String(fare),
-        suggestedFare: suggestedFare != null ? String(suggestedFare) : "",
-      },
-    });
+  async function handleCancelSearch() {
+    await cancelCurrentRide("Passageiro cancelou a busca");
+    setStep("pricing");
   }
 
-  function handleAcceptOffer(offer: DriverOffer) {
-    navigateToConfirm(offer.price, price);
+  async function handleAdjustValue() {
+    await cancelCurrentRide("Passageiro ajustou o valor");
+    setStep("pricing");
+  }
+
+  async function handleGoBack() {
+    if (rideId) await cancelCurrentRide("Passageiro saiu da tela de negociação");
+    router.back();
+  }
+
+  async function handleAcceptOffer(offer: OfferView) {
+    setAcceptingOfferId(offer.id);
+    try {
+      const ride = await acceptRideOffer(offer.id);
+      router.push({ pathname: "/(passenger)/confirm-ride", params: { rideId: ride.id } });
+    } catch (err) {
+      Alert.alert("Erro ao aceitar proposta", getErrorMessage(err));
+    } finally {
+      setAcceptingOfferId(null);
+    }
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={handleGoBack}>
           <Text style={styles.back}>‹ Voltar</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{step === "offers" ? "Escolha um motorista" : "Defina seu preço"}</Text>
@@ -184,8 +234,12 @@ export default function NegotiatePrice() {
             Toque no valor pra digitar · entre R$ {range.min.toFixed(2)} e R$ {range.max.toFixed(2)}
           </Text>
 
-          <TouchableOpacity style={styles.requestButton} onPress={handleRequestRide}>
-            <Text style={styles.requestButtonText}>Solicitar viagem</Text>
+          <TouchableOpacity style={styles.requestButton} onPress={handleRequestRide} disabled={requesting}>
+            {requesting ? (
+              <ActivityIndicator color={colors.black} />
+            ) : (
+              <Text style={styles.requestButtonText}>Solicitar viagem</Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -208,28 +262,37 @@ export default function NegotiatePrice() {
 
       {step === "offers" && (
         <ScrollView contentContainerStyle={styles.offersList}>
-          {offers.slice(0, visibleCount).map((offer) => (
+          {offers.map((offer) => (
             <View key={offer.id} style={styles.offerCard}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{offer.name.charAt(0)}</Text>
+                <Text style={styles.avatarText}>{offer.name.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.offerName}>
-                  {offer.name} · ★ {offer.rating.toFixed(1)}
+                  {offer.name}
+                  {offer.rating != null ? `  ★ ${offer.rating.toFixed(1)}` : ""}
                 </Text>
-                <Text style={styles.offerVehicle}>{offer.vehicle}</Text>
-                <Text style={styles.offerEta}>{offer.etaMinutes} min de distância</Text>
+                {offer.vehicle ? <Text style={styles.offerVehicle}>{offer.vehicle}</Text> : null}
               </View>
               <View style={styles.offerActionCol}>
                 <Text style={styles.offerPrice}>R$ {offer.price.toFixed(2)}</Text>
-                <TouchableOpacity style={styles.acceptOfferButton} onPress={() => handleAcceptOffer(offer)}>
-                  <Text style={styles.acceptOfferButtonText}>Aceitar</Text>
+                <TouchableOpacity
+                  style={styles.acceptOfferButton}
+                  onPress={() => handleAcceptOffer(offer)}
+                  disabled={acceptingOfferId != null}
+                >
+                  {acceptingOfferId === offer.id ? (
+                    <ActivityIndicator color={colors.black} size="small" />
+                  ) : (
+                    <Text style={styles.acceptOfferButtonText}>Aceitar</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
           ))}
 
-          {visibleCount < offers.length && <ActivityIndicator style={{ marginTop: 12 }} color={colors.brandGreen} />}
+          <ActivityIndicator style={{ marginTop: 12 }} color={colors.brandGreen} />
+          <Text style={styles.waitingMore}>Esperando mais propostas...</Text>
 
           <TouchableOpacity onPress={handleAdjustValue} style={styles.adjustLink}>
             <Text style={styles.linkText}>Ajustar valor</Text>
@@ -323,10 +386,17 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 18, fontWeight: "800", color: colors.black },
   offerName: { fontSize: 14, fontWeight: "700", color: colors.textPrimary },
   offerVehicle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  offerEta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   offerActionCol: { alignItems: "flex-end", gap: 6 },
   offerPrice: { fontSize: 16, fontWeight: "800", color: colors.textPrimary },
-  acceptOfferButton: { backgroundColor: colors.brandGreen, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 },
+  acceptOfferButton: {
+    backgroundColor: colors.brandGreen,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    minWidth: 64,
+    alignItems: "center",
+  },
   acceptOfferButtonText: { color: colors.black, fontWeight: "700", fontSize: 12 },
+  waitingMore: { textAlign: "center", color: colors.textSecondary, fontSize: 12, marginTop: 4 },
   adjustLink: { alignSelf: "center", marginTop: 8, padding: 8 },
 });

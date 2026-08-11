@@ -124,3 +124,29 @@ export interface Ride {
   cancelled_by: string | null;
   cancellation_reason: string | null;
 }
+
+export type RideOfferStatus = "pending" | "accepted" | "rejected";
+
+export interface RideOffer {
+  id: string;
+  ride_id: string;
+  driver_id: string;
+  price: number;
+  status: RideOfferStatus;
+  created_at: string;
+}
+
+export type PaymentStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export interface Payment {
+  id: string;
+  user_id: string;
+  ride_id: string | null;
+  status: PaymentStatus;
+  amount: number;
+  payment_method: "pix" | "cartao_credito" | "cartao_debito";
+  mp_preference_id: string | null;
+  mp_payment_id: string | null;
+  created_at: string;
+  updated_at: string;
+}

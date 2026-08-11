@@ -1,7 +1,7 @@
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 
 import { MapWebView, type LatLng } from "@/components/map/MapWebView";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
@@ -12,7 +12,7 @@ import { useDriverStatus } from "@/hooks/useDriverStatus";
 import { useIncomingRideRequests } from "@/hooks/useIncomingRideRequests";
 import { signOut } from "@/services/auth";
 import { setOnline } from "@/services/driverStatus";
-import { acceptRide } from "@/services/rides";
+import { createRideOffer, listenForOfferStatus } from "@/services/rideOffers";
 import { colors } from "@/theme/colors";
 import { getErrorMessage } from "@/utils/errors";
 
@@ -28,8 +28,10 @@ export default function DriverHome() {
   useDriverLocation(driverId, isOnline);
   const requests = useIncomingRideRequests(isOnline, profile?.category_id ?? null);
   const [center, setCenter] = useState<LatLng>(FALLBACK_CENTER);
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
+  const [submittingOffer, setSubmittingOffer] = useState(false);
+  const [submittedOfferId, setSubmittedOfferId] = useState<string | null>(null);
+  const [submittedForRideId, setSubmittedForRideId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -49,24 +51,46 @@ export default function DriverHome() {
     }
   }
 
-  async function handleAccept(rideId: string) {
+  async function handleSubmitOffer(rideId: string, price: number) {
     if (!driverId) return;
-    setAcceptingId(rideId);
+    setSubmittingOffer(true);
     try {
-      const ride = await acceptRide(rideId, driverId);
-      if (!ride) {
-        Alert.alert("Ops", "Essa corrida não está mais disponível.");
-        return;
-      }
-      router.push(`/(driver)/ride/${ride.id}`);
+      const offer = await createRideOffer(rideId, driverId, price);
+      setSubmittedOfferId(offer.id);
+      setSubmittedForRideId(rideId);
     } catch (err) {
-      Alert.alert("Erro ao aceitar", getErrorMessage(err));
+      Alert.alert("Erro ao enviar proposta", getErrorMessage(err));
     } finally {
-      setAcceptingId(null);
+      setSubmittingOffer(false);
     }
   }
 
+  // Assina a própria proposta pra saber se o passageiro aceitou ou recusou.
+  useEffect(() => {
+    if (!submittedOfferId || !submittedForRideId) return;
+    const unsubscribe = listenForOfferStatus(submittedOfferId, (offerStatus) => {
+      if (offerStatus === "accepted") {
+        router.push(`/(driver)/ride/${submittedForRideId}`);
+      } else if (offerStatus === "rejected") {
+        setSubmittedOfferId(null);
+        setSubmittedForRideId(null);
+      }
+    });
+    return unsubscribe;
+  }, [submittedOfferId, submittedForRideId, router]);
+
+  // Se a corrida some do pool aberto por outro motivo (passageiro cancelou,
+  // por exemplo) enquanto ainda estamos esperando resposta, limpa o estado
+  // de espera — senão ficaria preso mostrando "aguardando" pra sempre.
+  useEffect(() => {
+    if (submittedForRideId && !requests.some((r) => r.id === submittedForRideId)) {
+      setSubmittedOfferId(null);
+      setSubmittedForRideId(null);
+    }
+  }, [requests, submittedForRideId]);
+
   const nextRequest = requests[0] ?? null;
+  const waitingForResponse = submittedForRideId != null && submittedForRideId === nextRequest?.id;
 
   return (
     <View style={styles.container}>
@@ -109,11 +133,16 @@ export default function DriverHome() {
           <View style={styles.center}>
             <Text style={styles.hint}>Nenhuma corrida disponível no momento.</Text>
           </View>
+        ) : waitingForResponse ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.brandGreen} />
+            <Text style={styles.hint}>Proposta enviada — aguardando o passageiro escolher...</Text>
+          </View>
         ) : (
           <RideRequestCard
             ride={nextRequest}
-            accepting={acceptingId === nextRequest.id}
-            onAccept={() => handleAccept(nextRequest.id)}
+            submitting={submittingOffer}
+            onSubmitOffer={(price) => handleSubmitOffer(nextRequest.id, price)}
           />
         )}
       </RideBottomSheet>
@@ -146,6 +175,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   historyLink: { color: colors.textPrimary, fontWeight: "700" },
   signOut: { color: colors.danger, fontWeight: "700" },
-  center: { alignItems: "center", justifyContent: "center", paddingVertical: 12 },
+  center: { alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 8 },
   hint: { color: colors.textSecondary, textAlign: "center" },
 });

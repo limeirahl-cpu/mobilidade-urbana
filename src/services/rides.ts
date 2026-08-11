@@ -14,14 +14,21 @@ interface CreateRideInput {
   dropoff: Point;
   distanceKm: number;
   durationMin: number;
-  fare: number;
-  suggestedFare?: number;
+  suggestedFare: number;
   pickupAddress?: string;
   dropoffAddress?: string;
   couponId?: string;
   discountAmount?: number;
 }
 
+/**
+ * A corrida nasce assim que o passageiro entra na busca por motorista
+ * (antes de qualquer proposta chegar) — é isso que a torna visível pros
+ * motoristas online da categoria via `rides_select_own_or_open_pool`, e é o
+ * que dá pra `ride_offers` uma corrida real pra referenciar. `estimated_fare`
+ * só é preenchido depois, quando uma proposta é aceita (accept_ride_offer,
+ * 0016) — até lá, `suggested_fare` é o único valor monetário que existe.
+ */
 export async function createRide(input: CreateRideInput): Promise<Ride> {
   const { data, error } = await supabase
     .from("rides")
@@ -38,33 +45,12 @@ export async function createRide(input: CreateRideInput): Promise<Ride> {
       dropoff_address: input.dropoffAddress ?? null,
       estimated_distance_km: input.distanceKm,
       estimated_duration_min: input.durationMin,
-      estimated_fare: input.fare,
-      suggested_fare: input.suggestedFare ?? null,
+      suggested_fare: input.suggestedFare,
       coupon_id: input.couponId ?? null,
       discount_amount: input.discountAmount ?? null,
     })
     .select()
     .single();
-
-  if (error) throw error;
-  return data;
-}
-
-/**
- * Only succeeds if the ride was still open (`status='requested'`,
- * `driver_id` null) at the moment of the update — the RLS policy plus this
- * WHERE clause is what stops two drivers from accepting the same ride.
- * Returns null (instead of throwing) when someone else got there first.
- */
-export async function acceptRide(rideId: string, driverId: string): Promise<Ride | null> {
-  const { data, error } = await supabase
-    .from("rides")
-    .update({ driver_id: driverId, status: "accepted", accepted_at: new Date().toISOString() })
-    .eq("id", rideId)
-    .eq("status", "requested")
-    .is("driver_id", null)
-    .select()
-    .maybeSingle();
 
   if (error) throw error;
   return data;
