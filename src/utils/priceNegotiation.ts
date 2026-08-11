@@ -13,37 +13,46 @@ export function isWithinNegotiationRange(value: number, estimatedFare: number): 
   return value >= min && value <= max;
 }
 
-export type NegotiationOutcome =
-  | { result: "accepted" }
-  | { result: "countered"; counterFare: number }
-  | { result: "rejected" };
+export interface DriverOffer {
+  id: string;
+  name: string;
+  rating: number;
+  vehicle: string;
+  etaMinutes: number;
+  price: number;
+}
 
-const RESPONSE_DELAY_MS = 1800;
+const MOCK_FIRST_NAMES = ["Carlos", "Fernanda", "Roberto", "Juliana", "Marcos", "Patrícia", "André", "Camila"];
+const MOCK_CAR_MODELS = ["Onix", "HB20", "Ka", "Mobi", "Argo", "Kwid"];
+const MOCK_COLORS = ["prata", "preto", "branco", "cinza"];
 
-/** MOCK — simula a resposta do motorista à proposta do passageiro, já que o
- * matching real ainda não tem um passo de negociação de preço (o motorista
- * só aceita/recusa a corrida em si, não um valor). Quando isso existir de
- * verdade, essa função vira uma espera por uma resposta real do motorista
- * (ex: via Realtime), com a mesma assinatura de retorno. */
-export function simulateDriverResponse(suggestedFare: number, estimatedFare: number): Promise<NegotiationOutcome> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const distanceFromEstimate = Math.abs(suggestedFare - estimatedFare) / estimatedFare;
-      const acceptChance = Math.max(0.15, 0.85 - distanceFromEstimate * 2);
-      const roll = Math.random();
+function pickRandom<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
 
-      if (roll < acceptChance) {
-        resolve({ result: "accepted" });
-        return;
-      }
+/** MOCK — gera propostas de motoristas pro valor pedido pelo passageiro, no
+ * estilo InDrive (o motorista mais perto aparece primeiro). Sem matching
+ * real ainda — quando existir, essa função vira uma escuta de propostas de
+ * motoristas de verdade (ex: via Realtime), mantendo o mesmo formato de
+ * retorno. */
+export function simulateDriverOffers(requestedFare: number, categoryLabel: string): DriverOffer[] {
+  const count = 2 + Math.floor(Math.random() * 2);
 
-      if (roll < acceptChance + 0.5) {
-        const counterFare = Math.round(((suggestedFare + estimatedFare) / 2) * 100) / 100;
-        resolve({ result: "countered", counterFare });
-        return;
-      }
+  const offers = Array.from({ length: count }).map((_, index) => {
+    const asksMore = index > 0 && Math.random() < 0.4;
+    const price = asksMore
+      ? Math.round(requestedFare * (1 + Math.random() * 0.12) * 100) / 100
+      : requestedFare;
 
-      resolve({ result: "rejected" });
-    }, RESPONSE_DELAY_MS);
+    return {
+      id: `offer-${index}-${Date.now()}`,
+      name: pickRandom(MOCK_FIRST_NAMES),
+      rating: Math.round((4.6 + Math.random() * 0.4) * 10) / 10,
+      vehicle: `${categoryLabel} · ${pickRandom(MOCK_CAR_MODELS)} ${pickRandom(MOCK_COLORS)}`,
+      etaMinutes: 2 + Math.floor(Math.random() * 7),
+      price,
+    };
   });
+
+  return offers.sort((a, b) => a.etaMinutes - b.etaMinutes);
 }
