@@ -31,8 +31,15 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de uma API k
    - [`supabase/migrations/0014_payments.sql`](supabase/migrations/0014_payments.sql)
    - [`supabase/migrations/0015_cancellation_reason.sql`](supabase/migrations/0015_cancellation_reason.sql)
    - [`supabase/migrations/0016_ride_offers.sql`](supabase/migrations/0016_ride_offers.sql)
+   - [`supabase/migrations/0017_driver_verification.sql`](supabase/migrations/0017_driver_verification.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
+
+**Nota sobre verificação de motorista** (migration 0017): todo motorista novo nasce com `verification_status = 'pending'` e não consegue ficar online até isso virar `'approved'`. Não existe painel admin no app ainda — pra aprovar um motorista de teste, rode no SQL Editor:
+```sql
+update public.profiles set verification_status = 'approved' where id = 'uuid-do-motorista';
+```
+(o `id` é o mesmo da tabela `auth.users` — dá pra achar pelo telefone/nome direto na tabela `profiles`).
 
 ## 3. Desativar confirmação de e-mail (obrigatório, mesmo com login por telefone)
 
@@ -114,7 +121,7 @@ Vai aparecer um QR code. Abra o app **Expo Go** (Android/iOS, disponível na loj
 Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo tempo (ex: seu celular com Expo Go + um simulador, ou dois simuladores):
 
 1. **Dispositivo A**: digite um telefone, toque em "Enviar código" — a tela seguinte mostra um aviso "Modo de teste — código: XXXX" (é mockado, não chega SMS de verdade ainda). Digite esse código, confirme, escolha "Sou passageiro" e um gênero (Masculino/Feminino) — define qual boneco aparece no mapa.
-2. **Dispositivo B**: repita com outro telefone, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico), e ative o toggle **Online**. Depois, saia e entre de novo com o mesmo telefone — deve pular direto pra tela inicial, sem passar pelo cadastro de novo.
+2. **Dispositivo B**: repita com outro telefone, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico). Tente ativar o toggle **Online** — deve aparecer um aviso pedindo pra enviar documentos primeiro. Toque em "Enviar documentos", suba as 3 fotos (podem ser qualquer imagem da galeria pra teste) e a placa, e envie. Aprove manualmente pelo SQL Editor (nota da seção 2 acima) — só depois disso o toggle Online libera de verdade. Saia e entre de novo com o mesmo telefone — deve pular direto pra tela inicial, sem passar pelo cadastro de novo.
 3. **A**: toque em "Para onde vamos?". No destino, digite um endereço e escolha uma sugestão do Google Places (ou toque direto no mapa). Confirme que uma linha de rota real aparece entre embarque e destino (não só os dois marcadores). Escolha uma categoria entre os cartões — cada um mostra preço, capacidade (👤) e o tempo até o motorista mais próximo daquela categoria (ou "Sem motoristas" se B ainda não estiver online nela) — e uma forma de pagamento; o botão "Continuar" só habilita depois dos dois.
 3b. **A**: na tela de preço, teste os botões "−"/"+" (travados na faixa de ±20%) e toque no valor pra digitar direto. Toque em "Solicitar viagem" — isso já cria a corrida de verdade (é o que a torna visível pro motorista) e mostra a animação de radar ("Procurando motoristas...") até a primeira proposta chegar.
 3c. **B**: a corrida deve aparecer no cartão em poucos segundos, mostrando o valor pedido pelo passageiro. Ajuste o preço com os botões "−"/"+" se quiser propor outro valor, e toque em "Enviar proposta" — a tela deve mostrar "Proposta enviada, aguardando o passageiro...".

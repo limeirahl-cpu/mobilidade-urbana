@@ -44,8 +44,21 @@ export default function DriverHome() {
 
   async function toggleOnline(value: boolean) {
     if (!driverId) return;
+    if (value && profile?.verification_status !== "approved") {
+      Alert.alert(
+        "Verificação pendente",
+        profile?.verification_status === "rejected"
+          ? "Seus documentos foram rejeitados. Reenvie pra poder ficar online."
+          : "Envie seus documentos e aguarde a aprovação antes de ficar online.",
+        [
+          { text: "Enviar documentos", onPress: () => router.push("/(driver)/documents") },
+          { text: "Cancelar", style: "cancel" },
+        ]
+      );
+      return;
+    }
     try {
-      await setOnline(driverId, value);
+      await setOnline(value);
     } catch (err) {
       Alert.alert("Erro", getErrorMessage(err));
     }
@@ -111,6 +124,9 @@ export default function DriverHome() {
           />
           <TouchableOpacity onPress={() => router.push("/(driver)/profile")}>
             <Text style={styles.historyLink}>Perfil</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/(driver)/documents")}>
+            <Text style={styles.historyLink}>Verificação</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/(driver)/earnings")}>
             <Text style={styles.historyLink}>Ganhos</Text>

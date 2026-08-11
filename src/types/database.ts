@@ -23,6 +23,8 @@ export interface RideCategory {
   sort_order: number;
 }
 
+export type DriverVerificationStatus = "pending" | "approved" | "rejected";
+
 export interface Profile {
   id: string;
   role: UserRole;
@@ -36,6 +38,12 @@ export interface Profile {
   rating_avg: number | null;
   rating_count: number;
   avatar_url: string | null;
+  cnh_photo_url: string | null;
+  vehicle_document_url: string | null;
+  vehicle_photo_url: string | null;
+  vehicle_plate: string | null;
+  verification_status: DriverVerificationStatus;
+  verification_notes: string | null;
   created_at: string;
 }
 
