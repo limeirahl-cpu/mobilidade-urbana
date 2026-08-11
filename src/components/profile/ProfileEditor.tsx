@@ -28,7 +28,12 @@ export function ProfileEditor() {
   const [gender, setGender] = useState<Gender | null>(profile?.gender ?? null);
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [profile?.avatar_url]);
 
   useEffect(() => {
     if (profile?.role === "driver") {
@@ -90,8 +95,12 @@ export function ProfileEditor() {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
-        {profile.avatar_url ? (
-          <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+        {profile.avatar_url && !avatarLoadFailed ? (
+          <Image
+            source={{ uri: profile.avatar_url }}
+            style={styles.avatar}
+            onError={() => setAvatarLoadFailed(true)}
+          />
         ) : (
           <View style={[styles.avatar, styles.avatarPlaceholder]}>
             <Text style={styles.avatarInitial}>{profile.full_name.charAt(0).toUpperCase()}</Text>

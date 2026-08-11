@@ -16,13 +16,14 @@ export async function uploadDriverDocument(
   kind: DriverDocumentKind,
   localUri: string
 ): Promise<string> {
-  const response = await fetch(localUri);
-  const blob = await response.blob();
   const path = `${userId}/${kind}.jpg`;
+  const formData = new FormData();
+  // Ver comentário equivalente em src/services/avatar.ts sobre o cast.
+  formData.append("file", { uri: localUri, name: `${kind}.jpg`, type: "image/jpeg" } as unknown as Blob);
 
   const { error: uploadError } = await supabase.storage
     .from("driver-documents")
-    .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+    .upload(path, formData, { upsert: true, contentType: "image/jpeg" });
   if (uploadError) throw uploadError;
 
   const { error: updateError } = await supabase
