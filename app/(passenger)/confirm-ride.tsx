@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { PaymentCheckoutModal } from "@/components/payment/PaymentCheckoutModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { createPaymentPreference, needsRealPayment, openPaymentCheckout, waitForPaymentApproval } from "@/services/payments";
+import { createPaymentPreference, needsRealPayment, waitForPaymentApproval } from "@/services/payments";
 import { createPinForRide } from "@/services/ridePin";
 import { createRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
@@ -33,10 +34,22 @@ export default function ConfirmRide() {
 
   const [confirming, setConfirming] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
+  const [checkoutInitPoint, setCheckoutInitPoint] = useState<string | null>(null);
+  const cancelWaiterRef = useRef<(() => void) | null>(null);
 
   const finalFare = Number(params.finalFare);
   const suggestedFare = params.suggestedFare ? Number(params.suggestedFare) : null;
   const paymentLabel = getPaymentMethodLabel(params.paymentMethod) ?? params.paymentMethod;
+
+  function handleCheckoutReturn() {
+    setCheckoutInitPoint(null);
+    setStatusText("Aguardando confirmação do pagamento...");
+  }
+
+  function handleCheckoutClose() {
+    setCheckoutInitPoint(null);
+    cancelWaiterRef.current?.();
+  }
 
   async function handleConfirm() {
     if (!session?.user) return;
@@ -49,9 +62,11 @@ export default function ConfirmRide() {
           `Corrida Urbix — ${params.categoryLabel}`,
           params.paymentMethod
         );
-        await openPaymentCheckout(initPoint);
-        setStatusText("Aguardando confirmação do pagamento...");
-        const approved = await waitForPaymentApproval(paymentId);
+        const waiter = waitForPaymentApproval(paymentId);
+        cancelWaiterRef.current = waiter.cancel;
+        setCheckoutInitPoint(initPoint);
+        const approved = await waiter.promise;
+        cancelWaiterRef.current = null;
         if (!approved) {
           Alert.alert("Pagamento não aprovado", "Tente novamente ou escolha outra forma de pagamento.");
           return;
@@ -81,6 +96,7 @@ export default function ConfirmRide() {
     } finally {
       setConfirming(false);
       setStatusText(null);
+      setCheckoutInitPoint(null);
     }
   }
 
@@ -144,6 +160,13 @@ export default function ConfirmRide() {
           )}
         </TouchableOpacity>
       </View>
+
+      <PaymentCheckoutModal
+        visible={checkoutInitPoint != null}
+        initPoint={checkoutInitPoint}
+        onReturn={handleCheckoutReturn}
+        onRequestClose={handleCheckoutClose}
+      />
     </View>
   );
 }

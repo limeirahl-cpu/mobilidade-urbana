@@ -1,5 +1,3 @@
-import * as WebBrowser from "expo-web-browser";
-
 import { supabase } from "@/services/supabase";
 
 export type RealPaymentMethod = "pix" | "cartao_credito" | "cartao_debito";
@@ -25,19 +23,23 @@ export async function createPaymentPreference(
   return data;
 }
 
-/** Abre o checkout do Mercado Pago no navegador do sistema (não no WebView
- * do mapa) — é o jeito recomendado pra fluxos de pagamento externos. */
-export async function openPaymentCheckout(initPoint: string): Promise<void> {
-  await WebBrowser.openAuthSessionAsync(initPoint, "urbix://payment-return");
+interface PaymentApprovalWaiter {
+  promise: Promise<boolean>;
+  cancel: () => void;
 }
 
 /** Espera o status do pagamento mudar via Realtime — resolve true se
  * aprovado, false se rejeitado/cancelado. Nome do canal com sufixo
- * aleatório, mesmo padrão de useRide/useDriverStatus. */
-export function waitForPaymentApproval(paymentId: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const channel = supabase
-      .channel(`payment-${paymentId}-${Math.random().toString(36).slice(2, 10)}`)
+ * aleatório, mesmo padrão de useRide/useDriverStatus. `cancel()` derruba
+ * a inscrição sem resolver a promise, pra quando o usuário fecha o
+ * checkout manualmente antes de terminar. */
+export function waitForPaymentApproval(paymentId: string): PaymentApprovalWaiter {
+  const channel = supabase.channel(`payment-${paymentId}-${Math.random().toString(36).slice(2, 10)}`);
+  let resolvePromise: (approved: boolean) => void;
+
+  const promise = new Promise<boolean>((resolve) => {
+    resolvePromise = resolve;
+    channel
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "payments", filter: `id=eq.${paymentId}` },
@@ -54,4 +56,12 @@ export function waitForPaymentApproval(paymentId: string): Promise<boolean> {
       )
       .subscribe();
   });
+
+  return {
+    promise,
+    cancel: () => {
+      supabase.removeChannel(channel);
+      resolvePromise(false);
+    },
+  };
 }
