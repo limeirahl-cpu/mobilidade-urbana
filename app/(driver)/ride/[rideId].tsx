@@ -2,15 +2,18 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { MapWebView } from "@/components/map/MapWebView";
+import { MapWebView, type LatLng } from "@/components/map/MapWebView";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
+import { CancelReasonModal } from "@/components/ride/CancelReasonModal";
 import { FareEstimate } from "@/components/ride/FareEstimate";
 import { RatingForm } from "@/components/ride/RatingForm";
 import { RideStatusBanner } from "@/components/ride/RideStatusBanner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDriverStatus } from "@/hooks/useDriverStatus";
 import { useRide } from "@/hooks/useRide";
 import { fetchProfile } from "@/services/auth";
 import { fetchCategoryById } from "@/services/categories";
+import { getRoute } from "@/services/directions";
 import { fetchMyRatingForRide, submitRating } from "@/services/ratings";
 import { startRideWithPin } from "@/services/ridePin";
 import { cancelRide, completeRide, startHeadingToPickup } from "@/services/rides";
@@ -26,18 +29,52 @@ export default function DriverRideScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { ride, loading } = useRide(rideId ?? null);
+  const driverStatus = useDriverStatus(session?.user.id ?? null);
   const [category, setCategory] = useState<RideCategory | null>(null);
   const [passengerProfile, setPassengerProfile] = useState<Profile | null>(null);
   const [myRating, setMyRating] = useState<RideRating | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
   const [pinInput, setPinInput] = useState("");
   const [confirmingPin, setConfirmingPin] = useState(false);
+  const [route, setRoute] = useState<LatLng[] | null>(null);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   useEffect(() => {
     if (ride?.category_id) {
       fetchCategoryById(ride.category_id).then(setCategory).catch(() => setCategory(null));
     }
   }, [ride?.category_id]);
+
+  // Recalcula a rota só quando o status da corrida muda (não a cada tick de
+  // GPS do motorista, pra não estourar a Directions API à toa). Até
+  // "arriving", desenha o caminho até o embarque; em "in_progress", até o
+  // destino (partindo do embarque, onde o motorista está nesse momento).
+  useEffect(() => {
+    if (!ride) return;
+    if (ride.status !== "accepted" && ride.status !== "arriving" && ride.status !== "in_progress") {
+      setRoute(null);
+      return;
+    }
+    const origin =
+      ride.status === "in_progress"
+        ? { lat: ride.pickup_lat, lng: ride.pickup_lng }
+        : driverStatus?.current_lat != null && driverStatus?.current_lng != null
+          ? { lat: driverStatus.current_lat, lng: driverStatus.current_lng }
+          : null;
+    const destination =
+      ride.status === "in_progress"
+        ? { lat: ride.dropoff_lat, lng: ride.dropoff_lng }
+        : { lat: ride.pickup_lat, lng: ride.pickup_lng };
+    if (!origin) return;
+
+    let cancelled = false;
+    getRoute(origin, destination).then((result) => {
+      if (!cancelled) setRoute(result?.coordinates ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ride?.status]);
 
   useEffect(() => {
     if (ride?.passenger_id) {
@@ -76,6 +113,12 @@ export default function DriverRideScreen() {
     }
   }
 
+  async function handleCancel(reason: string) {
+    if (!ride || !session?.user) return;
+    setCancelModalVisible(false);
+    await guard(() => cancelRide(ride.id, session.user.id, reason));
+  }
+
   async function handleConfirmPin() {
     if (!ride || pinInput.length !== 4) return;
     setConfirmingPin(true);
@@ -107,6 +150,16 @@ export default function DriverRideScreen() {
           initialCenter={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
           pickup={{ lat: ride.pickup_lat, lng: ride.pickup_lng, gender: passengerProfile?.gender }}
           dropoff={{ lat: ride.dropoff_lat, lng: ride.dropoff_lng }}
+          driverLocation={
+            driverStatus?.current_lat != null && driverStatus?.current_lng != null
+              ? {
+                  lat: driverStatus.current_lat,
+                  lng: driverStatus.current_lng,
+                  vehicleType: category?.key === "moto" ? "moto" : "car",
+                }
+              : null
+          }
+          route={route}
           selectable="none"
         />
       </View>
@@ -178,10 +231,7 @@ export default function DriverRideScreen() {
         )}
 
         {(ride.status === "accepted" || ride.status === "arriving") && session?.user && (
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => guard(() => cancelRide(ride.id, session.user.id))}
-          >
+          <TouchableOpacity style={styles.cancelButton} onPress={() => setCancelModalVisible(true)}>
             <Text style={styles.cancelText}>Cancelar corrida</Text>
           </TouchableOpacity>
         )}
@@ -199,6 +249,12 @@ export default function DriverRideScreen() {
           </TouchableOpacity>
         )}
       </RideBottomSheet>
+
+      <CancelReasonModal
+        visible={cancelModalVisible}
+        onConfirm={handleCancel}
+        onDismiss={() => setCancelModalVisible(false)}
+      />
     </View>
   );
 }

@@ -86,10 +86,15 @@ export async function completeRide(rideId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function cancelRide(rideId: string, actorId: string): Promise<void> {
+export async function cancelRide(rideId: string, actorId: string, reason?: string): Promise<void> {
   const { error } = await supabase
     .from("rides")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancelled_by: actorId })
+    .update({
+      status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: actorId,
+      cancellation_reason: reason ?? null,
+    })
     .eq("id", rideId);
   if (error) throw error;
 }

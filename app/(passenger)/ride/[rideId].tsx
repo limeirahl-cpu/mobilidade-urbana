@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, Share, StyleSheet, Text, TouchableOpacity, Vi
 
 import { MapWebView } from "@/components/map/MapWebView";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
+import { CancelReasonModal } from "@/components/ride/CancelReasonModal";
 import { FareEstimate } from "@/components/ride/FareEstimate";
 import { RatingForm } from "@/components/ride/RatingForm";
 import { RideStatusBanner } from "@/components/ride/RideStatusBanner";
@@ -36,6 +37,7 @@ export default function PassengerRideScreen() {
   const [myRating, setMyRating] = useState<RideRating | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [sheetIndex, setSheetIndex] = useState(0);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   useEffect(() => {
     if (ride?.driver_id) {
@@ -107,10 +109,11 @@ export default function PassengerRideScreen() {
     }
   }
 
-  async function handleCancel() {
+  async function handleCancel(reason: string) {
     if (!ride || !session?.user) return;
+    setCancelModalVisible(false);
     try {
-      await cancelRide(ride.id, session.user.id);
+      await cancelRide(ride.id, session.user.id, reason);
     } catch (err) {
       Alert.alert("Erro ao cancelar", getErrorMessage(err));
     }
@@ -200,7 +203,7 @@ export default function PassengerRideScreen() {
         )}
 
         {(ride.status === "requested" || ride.status === "accepted" || ride.status === "arriving") && (
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => setCancelModalVisible(true)}>
             <Text style={styles.cancelText}>Cancelar corrida</Text>
           </TouchableOpacity>
         )}
@@ -218,6 +221,12 @@ export default function PassengerRideScreen() {
           </TouchableOpacity>
         )}
       </RideBottomSheet>
+
+      <CancelReasonModal
+        visible={cancelModalVisible}
+        onConfirm={handleCancel}
+        onDismiss={() => setCancelModalVisible(false)}
+      />
     </View>
   );
 }
