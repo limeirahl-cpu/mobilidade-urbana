@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchProfile } from "@/services/auth";
 import { acceptRideOffer, listenForRideOffers } from "@/services/rideOffers";
@@ -21,6 +22,7 @@ interface OfferView {
   name: string;
   rating: number | null;
   vehicle: string | null;
+  avatarUrl: string | null;
 }
 
 // Anéis pulsando estilo "radar" — mesma ideia da animação CSS já usada nos
@@ -97,6 +99,7 @@ export default function NegotiatePrice() {
                 name: profile?.full_name ?? "Motorista",
                 rating: profile?.rating_avg ?? null,
                 vehicle: profile?.vehicle_info ?? null,
+                avatarUrl: profile?.avatar_url ?? null,
               },
             ]
       );
@@ -264,9 +267,7 @@ export default function NegotiatePrice() {
         <ScrollView contentContainerStyle={styles.offersList}>
           {offers.map((offer) => (
             <View key={offer.id} style={styles.offerCard}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{offer.name.charAt(0).toUpperCase()}</Text>
-              </View>
+              <Avatar uri={offer.avatarUrl} label={offer.name} size={48} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.offerName}>
                   {offer.name}
@@ -375,15 +376,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 14,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.brandGreen,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { fontSize: 18, fontWeight: "800", color: colors.black },
   offerName: { fontSize: 14, fontWeight: "700", color: colors.textPrimary },
   offerVehicle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   offerActionCol: { alignItems: "flex-end", gap: 6 },

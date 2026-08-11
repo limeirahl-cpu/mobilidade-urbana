@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { MapWebView } from "@/components/map/MapWebView";
+import { Avatar } from "@/components/ui/Avatar";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
 import { CancelReasonModal } from "@/components/ride/CancelReasonModal";
 import { FareEstimate } from "@/components/ride/FareEstimate";
@@ -158,9 +159,7 @@ export default function PassengerRideScreen() {
             ride.status === "in_progress" ||
             ride.status === "completed") && (
             <View style={styles.driverCard}>
-              <View style={styles.driverAvatar}>
-                <Text style={styles.driverInitial}>{driverProfile.full_name.charAt(0).toUpperCase()}</Text>
-              </View>
+              <Avatar uri={driverProfile.avatar_url} label={driverProfile.full_name} size={44} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.driverName}>
                   {driverProfile.full_name}
@@ -242,14 +241,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
   },
-  driverAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.brandGreen,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   categoryBadge: {
     fontSize: 12,
     fontWeight: "800",
@@ -277,7 +268,6 @@ const styles = StyleSheet.create({
   paymentLine: { fontSize: 13, fontWeight: "600", color: colors.textSecondary },
   favoriteStar: { fontSize: 26, color: colors.border },
   favoriteStarActive: { color: colors.brandGreen },
-  driverInitial: { fontSize: 18, fontWeight: "800", color: colors.black },
   driverName: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
   driverVehicle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   cancelButton: { borderWidth: 1, borderColor: colors.danger, borderRadius: 12, padding: 14, alignItems: "center" },

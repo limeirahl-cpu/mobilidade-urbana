@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Dimensions, Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { colors } from "@/theme/colors";
 import type { Profile } from "@/types/database";
 
@@ -64,9 +65,7 @@ export function DriverSideMenu({
 
         <Animated.View style={[styles.drawer, { width: DRAWER_WIDTH, transform: [{ translateX }] }]}>
           <View style={styles.header}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{profile?.full_name?.charAt(0).toUpperCase() ?? "?"}</Text>
-            </View>
+            <Avatar uri={profile?.avatar_url} label={profile?.full_name ?? "?"} size={64} />
             <Text style={styles.name}>{profile?.full_name}</Text>
             {profile?.rating_avg != null && <Text style={styles.rating}>★ {profile.rating_avg.toFixed(1)}</Text>}
           </View>
@@ -112,15 +111,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   header: { alignItems: "center", gap: 6, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: colors.border },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.brandGreen,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { fontSize: 26, fontWeight: "800", color: colors.black },
   name: { fontSize: 16, fontWeight: "800", color: colors.textPrimary },
   rating: { fontSize: 13, color: colors.textSecondary },
   items: { paddingTop: 12, gap: 4, flex: 1 },

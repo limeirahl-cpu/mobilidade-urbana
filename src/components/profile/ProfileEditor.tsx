@@ -1,16 +1,8 @@
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateProfile } from "@/services/auth";
 import { uploadAvatar } from "@/services/avatar";
@@ -28,12 +20,7 @@ export function ProfileEditor() {
   const [gender, setGender] = useState<Gender | null>(profile?.gender ?? null);
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setAvatarLoadFailed(false);
-  }, [profile?.avatar_url]);
 
   useEffect(() => {
     if (profile?.role === "driver") {
@@ -95,17 +82,7 @@ export function ProfileEditor() {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickAvatar} disabled={uploadingAvatar}>
-        {profile.avatar_url && !avatarLoadFailed ? (
-          <Image
-            source={{ uri: profile.avatar_url }}
-            style={styles.avatar}
-            onError={() => setAvatarLoadFailed(true)}
-          />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarInitial}>{profile.full_name.charAt(0).toUpperCase()}</Text>
-          </View>
-        )}
+        <Avatar uri={profile.avatar_url} label={profile.full_name} size={88} />
         {uploadingAvatar && (
           <View style={styles.avatarOverlay}>
             <ActivityIndicator color={colors.white} />
@@ -187,9 +164,6 @@ export function ProfileEditor() {
 const styles = StyleSheet.create({
   container: { gap: 14 },
   avatarWrapper: { alignItems: "center", gap: 6 },
-  avatar: { width: 88, height: 88, borderRadius: 44 },
-  avatarPlaceholder: { backgroundColor: colors.brandGreen, alignItems: "center", justifyContent: "center" },
-  avatarInitial: { fontSize: 32, fontWeight: "800", color: colors.black },
   avatarOverlay: {
     position: "absolute",
     top: 0,

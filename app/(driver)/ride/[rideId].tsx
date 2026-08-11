@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { MapWebView, type LatLng } from "@/components/map/MapWebView";
+import { Avatar } from "@/components/ui/Avatar";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
 import { CancelReasonModal } from "@/components/ride/CancelReasonModal";
 import { FareEstimate } from "@/components/ride/FareEstimate";
@@ -175,9 +176,7 @@ export default function DriverRideScreen() {
 
         {passengerProfile && (
           <View style={styles.passengerCard}>
-            <View style={styles.passengerAvatar}>
-              <Text style={styles.passengerInitial}>{passengerProfile.full_name.charAt(0).toUpperCase()}</Text>
-            </View>
+            <Avatar uri={passengerProfile.avatar_url} label={passengerProfile.full_name} size={40} />
             <Text style={styles.passengerName}>
               {passengerProfile.full_name}
               {passengerProfile.rating_avg != null ? `  ★ ${passengerProfile.rating_avg.toFixed(1)}` : ""}
@@ -291,15 +290,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12,
   },
-  passengerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.brandGreen,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  passengerInitial: { fontSize: 16, fontWeight: "800", color: colors.black },
   passengerName: { fontSize: 15, fontWeight: "700", color: colors.textPrimary },
   myRating: { fontSize: 15, fontWeight: "700", color: colors.brandGreenDark, textAlign: "center" },
   pinSection: { gap: 10 },
