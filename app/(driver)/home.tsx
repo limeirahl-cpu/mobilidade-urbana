@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 
 import { MapWebView, type LatLng } from "@/components/map/MapWebView";
+import { DriverSideMenu } from "@/components/driver/DriverSideMenu";
 import { RideBottomSheet } from "@/components/ui/RideBottomSheet";
 import { RideRequestCard } from "@/components/ride/RideRequestCard";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +13,7 @@ import { useDriverStatus } from "@/hooks/useDriverStatus";
 import { useIncomingRideRequests } from "@/hooks/useIncomingRideRequests";
 import { signOut } from "@/services/auth";
 import { setOnline } from "@/services/driverStatus";
+import { fetchDriverEarningsSummary } from "@/services/earnings";
 import { registerAndSavePushToken } from "@/services/pushNotifications";
 import { createRideOffer, listenForOfferStatus } from "@/services/rideOffers";
 import { colors } from "@/theme/colors";
@@ -33,6 +35,8 @@ export default function DriverHome() {
   const [submittingOffer, setSubmittingOffer] = useState(false);
   const [submittedOfferId, setSubmittedOfferId] = useState<string | null>(null);
   const [submittedForRideId, setSubmittedForRideId] = useState<string | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [todayGross, setTodayGross] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -42,6 +46,16 @@ export default function DriverHome() {
       setCenter({ lat: loc.coords.latitude, lng: loc.coords.longitude });
     })();
   }, []);
+
+  // Contador do dia no mapa — busca de novo sempre que o motorista muda de
+  // status online/offline (cobre o caso comum de abrir o app já ligado, e
+  // de refletir a corrida mais recente ao voltar pra home depois dela).
+  useEffect(() => {
+    if (!driverId) return;
+    fetchDriverEarningsSummary(driverId)
+      .then((summary) => setTodayGross(summary.today.gross))
+      .catch(() => {});
+  }, [driverId, isOnline]);
 
   async function toggleOnline(value: boolean) {
     if (!driverId) return;
@@ -115,33 +129,20 @@ export default function DriverHome() {
         <MapWebView initialCenter={center} selectable="none" />
       </View>
 
+      <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
+        <Text style={styles.menuIcon}>☰</Text>
+      </TouchableOpacity>
+
       <View style={styles.topBar}>
         <View>
-          <Text style={styles.title}>Olá, {profile?.full_name}</Text>
-          <Text style={styles.subtitle}>{isOnline ? "Você está online" : "Você está offline"}</Text>
+          <Text style={styles.counter}>R$ {todayGross.toFixed(2)}</Text>
+          <Text style={styles.counterLabel}>hoje</Text>
         </View>
-        <View style={styles.topBarRight}>
-          <Switch
-            value={isOnline}
-            onValueChange={toggleOnline}
-            trackColor={{ true: colors.brandGreen, false: colors.border }}
-          />
-          <TouchableOpacity onPress={() => router.push("/(driver)/profile")}>
-            <Text style={styles.historyLink}>Perfil</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/(driver)/documents")}>
-            <Text style={styles.historyLink}>Verificação</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/(driver)/earnings")}>
-            <Text style={styles.historyLink}>Ganhos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/(driver)/history")}>
-            <Text style={styles.historyLink}>Histórico</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => signOut()}>
-            <Text style={styles.signOut}>Sair</Text>
-          </TouchableOpacity>
-        </View>
+        <Switch
+          value={isOnline}
+          onValueChange={toggleOnline}
+          trackColor={{ true: colors.brandGreen, false: colors.border }}
+        />
       </View>
 
       <RideBottomSheet index={sheetIndex} snapPoints={SNAP_POINTS} onChangeIndex={setSheetIndex}>
@@ -166,23 +167,50 @@ export default function DriverHome() {
           />
         )}
       </RideBottomSheet>
+
+      <DriverSideMenu
+        visible={menuVisible}
+        profile={profile}
+        onClose={() => setMenuVisible(false)}
+        onSelectProfile={() => router.push("/(driver)/profile")}
+        onSelectDocuments={() => router.push("/(driver)/documents")}
+        onSelectEarnings={() => router.push("/(driver)/earnings")}
+        onSelectHistory={() => router.push("/(driver)/history")}
+        onSignOut={() => signOut()}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: {
+  menuButton: {
     position: "absolute",
     top: 56,
     left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  menuIcon: { fontSize: 20, color: colors.textPrimary },
+  topBar: {
+    position: "absolute",
+    top: 56,
     right: 16,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 14,
     backgroundColor: colors.white,
     borderRadius: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -190,11 +218,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  topBarRight: { flexDirection: "row", alignItems: "center", gap: 14 },
-  title: { fontSize: 16, fontWeight: "700", color: colors.textPrimary },
-  subtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  historyLink: { color: colors.textPrimary, fontWeight: "700" },
-  signOut: { color: colors.danger, fontWeight: "700" },
+  counter: { fontSize: 16, fontWeight: "800", color: colors.textPrimary, textAlign: "right" },
+  counterLabel: { fontSize: 11, color: colors.textSecondary, textAlign: "right" },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 8 },
   hint: { color: colors.textSecondary, textAlign: "center" },
 });
