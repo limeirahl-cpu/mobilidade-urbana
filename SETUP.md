@@ -28,6 +28,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de uma API k
    - [`supabase/migrations/0011_profile_gender.sql`](supabase/migrations/0011_profile_gender.sql)
    - [`supabase/migrations/0012_phone_profile_and_payments.sql`](supabase/migrations/0012_phone_profile_and_payments.sql)
    - [`supabase/migrations/0013_ride_negotiation_and_capacity.sql`](supabase/migrations/0013_ride_negotiation_and_capacity.sql)
+   - [`supabase/migrations/0014_payments.sql`](supabase/migrations/0014_payments.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -64,7 +65,28 @@ endereço e cálculo de rota:
 3. Em **APIs e serviços → Credenciais**, crie uma **Chave de API**.
 4. Edite a chave e, em **Restrições de API**, marque "Restringir chave" e selecione só as 4 APIs acima. **Não** use restrição por app/site (referrer/pacote) — a key roda dentro de HTML embutido no WebView, sem uma origem HTTPS real, então esse tipo de restrição bloquearia tudo.
 
-## 5. Preencher o `.env`
+## 5. Configurar o Mercado Pago (pagamento real de Pix/cartão)
+
+Pix e cartão de crédito/débito agora processam um pagamento de verdade
+(Checkout Pro do Mercado Pago) antes de criar a corrida — só "Dinheiro"
+continua sem cobrança. Isso roda em duas Edge Functions do Supabase (a
+única parte do projeto com um "backend" além do banco), então tem mais
+passos que o normal:
+
+1. Crie uma conta em [mercadopago.com.br/developers](https://www.mercadopago.com.br/developers/panel) (gratuita).
+2. No painel, em **Suas integrações → Credenciais de teste**, copie o **Access Token de teste** (começa com `TEST-`). Use essas credenciais de teste por enquanto — antes de lançar de verdade, troque pelas credenciais de produção.
+3. Instale a [CLI do Supabase](https://supabase.com/docs/guides/cli) se ainda não tiver, e rode na raiz do projeto:
+   ```bash
+   supabase login
+   supabase link --project-ref SEU-PROJECT-REF
+   supabase secrets set MERCADOPAGO_ACCESS_TOKEN=TEST-seu-token-aqui
+   supabase functions deploy mercadopago-create-preference
+   supabase functions deploy mercadopago-webhook
+   ```
+   (O `PROJECT-REF` é o final da sua Project URL, ex: `xxxxx` de `https://xxxxx.supabase.co`.) Se preferir não instalar a CLI, dá pra criar as duas functions colando o código direto no painel do Supabase, em **Edge Functions → Deploy a new function** — o secret se configura em **Edge Functions → Secrets**, do mesmo jeito.
+4. Pra testar pagamentos de verdade sem gastar dinheiro, crie um **comprador de teste** em **Suas integrações → Contas de teste** e use o e-mail/senha dele na hora de pagar dentro do checkout do Mercado Pago.
+
+## 6. Preencher o `.env`
 
 Na raiz do projeto, copie [`​.env.example`](.env.example) para um arquivo chamado `.env` e preencha com os valores que você anotou:
 
@@ -74,7 +96,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-aqui
 EXPO_PUBLIC_GOOGLE_MAPS_KEY=sua-chave-do-google-maps-aqui
 ```
 
-## 6. Rodar o app
+## 7. Rodar o app
 
 No terminal, dentro da pasta do projeto:
 
@@ -85,14 +107,15 @@ npx expo start
 
 Vai aparecer um QR code. Abra o app **Expo Go** (Android/iOS, disponível na loja de apps) no celular e escaneie o QR code — ou pressione `i`/`a` no terminal para abrir num simulador iOS/Android, se você tiver um instalado.
 
-## 7. Testar o fluxo completo
+## 8. Testar o fluxo completo
 
 Você vai precisar de **dois dispositivos/simuladores** rodando o app ao mesmo tempo (ex: seu celular com Expo Go + um simulador, ou dois simuladores):
 
 1. **Dispositivo A**: digite um telefone, toque em "Enviar código" — a tela seguinte mostra um aviso "Modo de teste — código: XXXX" (é mockado, não chega SMS de verdade ainda). Digite esse código, confirme, escolha "Sou passageiro" e um gênero (Masculino/Feminino) — define qual boneco aparece no mapa.
 2. **Dispositivo B**: repita com outro telefone, escolha "Sou motorista", preencha o veículo, escolha uma categoria (ex: Econômico), e ative o toggle **Online**. Depois, saia e entre de novo com o mesmo telefone — deve pular direto pra tela inicial, sem passar pelo cadastro de novo.
 3. **A**: toque em "Para onde vamos?". No destino, digite um endereço e escolha uma sugestão do Google Places (ou toque direto no mapa). Confirme que uma linha de rota real aparece entre embarque e destino (não só os dois marcadores). Escolha uma categoria entre os cartões — cada um mostra preço, capacidade (👤) e o tempo até o motorista mais próximo daquela categoria (ou "Sem motoristas" se B ainda não estiver online nela) — e uma forma de pagamento; o botão "Continuar" só habilita depois dos dois.
-3b. **A**: na tela de negociação, teste os dois caminhos: "Aceitar preço estimado" (deve ir direto pra confirmação, sem espera) e, numa corrida nova, "Sugerir outro valor" dentro da faixa mostrada — deve aparecer "Aguardando resposta do motorista..." por alguns segundos e depois um resultado (aceito, contraproposta ou recusado). Na tela de confirmação, revise o resumo e toque em "Confirmar corrida".
+3b. **A**: na tela de preço, teste os botões "−"/"+" (travados na faixa de ±20%) e toque no valor pra digitar direto. Toque em "Solicitar viagem" — deve aparecer a animação de radar por ~2s ("Procurando motoristas...") e depois 2-3 cartões de motorista surgindo em sequência (nome, nota, veículo, tempo de chegada, preço). Toque em "Aceitar" num cartão. Na tela de confirmação, revise o resumo (inclusive "Valor negociado", se o preço aceito for diferente do pedido).
+3c. **A**: escolhendo "Pix" ou "Cartão de crédito/débito" como forma de pagamento, ao tocar em "Confirmar corrida" deve abrir o checkout do Mercado Pago no navegador do sistema (não dentro do app) — pague com um comprador de teste do Mercado Pago. Ao voltar pro app (redirecionado automaticamente), a corrida só deve ser criada depois que o pagamento aparecer como aprovado (tela mostra "Aguardando confirmação do pagamento..." enquanto isso). Repita escolhendo "Dinheiro" e confirme que pula direto pra criação da corrida, sem abrir nenhum checkout.
 4. **B**: a corrida deve aparecer no cartão em poucos segundos — toque em "Aceitar".
 5. **A**: a tela deve mostrar o motorista atribuído.
 6. Para simular o motorista se movendo (sem GPS real): no simulador iOS, vá em **Features → Location**; no Android, use os **Extended Controls → Location** e mova o ponto ou rode uma rota. O marcador azul no dispositivo A deve se mover em tempo real.

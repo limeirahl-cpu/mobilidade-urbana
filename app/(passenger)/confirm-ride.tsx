@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { createPaymentPreference, needsRealPayment, openPaymentCheckout, waitForPaymentApproval } from "@/services/payments";
 import { createPinForRide } from "@/services/ridePin";
 import { createRide } from "@/services/rides";
 import { colors } from "@/theme/colors";
@@ -31,6 +32,7 @@ export default function ConfirmRide() {
   }>();
 
   const [confirming, setConfirming] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
 
   const finalFare = Number(params.finalFare);
   const suggestedFare = params.suggestedFare ? Number(params.suggestedFare) : null;
@@ -40,6 +42,23 @@ export default function ConfirmRide() {
     if (!session?.user) return;
     setConfirming(true);
     try {
+      if (needsRealPayment(params.paymentMethod)) {
+        setStatusText("Abrindo pagamento...");
+        const { initPoint, paymentId } = await createPaymentPreference(
+          finalFare,
+          `Corrida Urbix — ${params.categoryLabel}`,
+          params.paymentMethod
+        );
+        await openPaymentCheckout(initPoint);
+        setStatusText("Aguardando confirmação do pagamento...");
+        const approved = await waitForPaymentApproval(paymentId);
+        if (!approved) {
+          Alert.alert("Pagamento não aprovado", "Tente novamente ou escolha outra forma de pagamento.");
+          return;
+        }
+      }
+
+      setStatusText("Confirmando corrida...");
       const ride = await createRide({
         passengerId: session.user.id,
         categoryId: params.categoryId,
@@ -61,6 +80,7 @@ export default function ConfirmRide() {
       Alert.alert("Erro ao pedir corrida", getErrorMessage(err));
     } finally {
       setConfirming(false);
+      setStatusText(null);
     }
   }
 
@@ -115,7 +135,10 @@ export default function ConfirmRide() {
 
         <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm} disabled={confirming}>
           {confirming ? (
-            <ActivityIndicator color={colors.white} />
+            <View style={styles.confirmingRow}>
+              <ActivityIndicator color={colors.white} />
+              {statusText && <Text style={styles.confirmButtonText}>{statusText}</Text>}
+            </View>
           ) : (
             <Text style={styles.confirmButtonText}>Confirmar corrida</Text>
           )}
@@ -147,5 +170,6 @@ const styles = StyleSheet.create({
   summaryLabelFinal: { fontSize: 14, fontWeight: "700", color: colors.textPrimary },
   summaryValueFinal: { fontSize: 16, fontWeight: "800", color: colors.textPrimary },
   confirmButton: { backgroundColor: colors.brandOrange, borderRadius: 12, padding: 16, alignItems: "center" },
+  confirmingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   confirmButtonText: { color: colors.white, fontSize: 16, fontWeight: "800" },
 });
