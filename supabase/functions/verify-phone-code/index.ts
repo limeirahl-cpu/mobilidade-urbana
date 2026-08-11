@@ -1,15 +1,10 @@
-// Edge Function — confere o código digitado contra o que está gravado em
-// phone_verifications (service role, cliente não tem select nenhum ali).
-// Consome a linha ao validar com sucesso, pra não deixar reusar o mesmo
-// código depois.
-import { createClient } from "jsr:@supabase/supabase-js@2";
-
+// Edge Function — confere o código digitado via Twilio Verify Check. O
+// Twilio já sabe qual é o código certo pro telefone (gerado por ele mesmo
+// no send-verification-code) — a gente só repassa a checagem.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const MAX_ATTEMPTS = 5;
 
 interface RequestBody {
   phone: string;
@@ -24,6 +19,16 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const verifyServiceSid = Deno.env.get("TWILIO_VERIFY_SERVICE_SID");
+    if (!accountSid || !authToken || !verifyServiceSid) {
+      return new Response(JSON.stringify({ error: "Credenciais do Twilio não configuradas" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body: RequestBody = await req.json();
     if (!body.phone || !body.code) {
       return new Response(JSON.stringify({ error: "Dados inválidos" }), {
@@ -32,44 +37,38 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
-    function result(ok: boolean, reason?: FailureReason) {
+    function respond(ok: boolean, reason?: FailureReason) {
       return new Response(JSON.stringify(ok ? { ok: true } : { ok: false, reason }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { data: pending } = await adminClient
-      .from("phone_verifications")
-      .select("*")
-      .eq("phone", body.phone)
-      .maybeSingle();
+    const auth = btoa(`${accountSid}:${authToken}`);
+    const twilioResponse = await fetch(
+      `https://verify.twilio.com/v2/Services/${verifyServiceSid}/VerificationCheck`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ To: body.phone, Code: body.code }),
+      }
+    );
 
-    if (!pending) return result(false, "not_requested");
+    const result = await twilioResponse.json();
 
-    if (new Date(pending.expires_at).getTime() < Date.now()) {
-      await adminClient.from("phone_verifications").delete().eq("phone", body.phone);
-      return result(false, "expired");
+    if (!twilioResponse.ok) {
+      // 20404 = nenhuma verificação pendente pra esse número (nunca pediu
+      // ou já expirou — o Twilio não distingue os dois casos).
+      if (result.code === 20404) return respond(false, "expired");
+      // 60202 = limite de tentativas de checagem atingido do lado do Twilio.
+      if (result.code === 60202) return respond(false, "too_many_attempts");
+      throw new Error(result.message ?? "Erro ao verificar código");
     }
 
-    if (pending.attempts >= MAX_ATTEMPTS) {
-      await adminClient.from("phone_verifications").delete().eq("phone", body.phone);
-      return result(false, "too_many_attempts");
-    }
-
-    if (pending.code !== body.code) {
-      await adminClient
-        .from("phone_verifications")
-        .update({ attempts: pending.attempts + 1 })
-        .eq("phone", body.phone);
-      return result(false, "invalid");
-    }
-
-    await adminClient.from("phone_verifications").delete().eq("phone", body.phone);
-    return result(true);
+    if (result.status === "approved") return respond(true);
+    return respond(false, "invalid");
   } catch (err) {
     return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Erro desconhecido" }), {
       status: 500,

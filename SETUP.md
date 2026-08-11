@@ -36,6 +36,7 @@ Este app não roda "pronto": ele precisa de um backend (Supabase) e de uma API k
    - [`supabase/migrations/0019_driver_push_tokens.sql`](supabase/migrations/0019_driver_push_tokens.sql)
    - [`supabase/migrations/0020_phone_verifications.sql`](supabase/migrations/0020_phone_verifications.sql)
    - [`supabase/migrations/0021_terms_acceptance.sql`](supabase/migrations/0021_terms_acceptance.sql)
+   - [`supabase/migrations/0022_drop_phone_verifications.sql`](supabase/migrations/0022_drop_phone_verifications.sql)
 
 Cada um deve rodar sem erro antes de colar o próximo.
 
@@ -107,20 +108,24 @@ supabase functions deploy notify-drivers-new-ride
 ```
 Push só funciona em **dispositivo físico** (Android/iOS de verdade) — simulador/emulador não recebe notificação push do Expo. Pra testar: motorista fica online num aparelho físico, trava a tela, e pede uma corrida do outro dispositivo — a notificação deve aparecer mesmo com o app fechado.
 
-## 7. Configurar o SMS real (Zenvia)
+## 7. Configurar o SMS real (Twilio Verify)
 
-O código de verificação de telefone agora é enviado por SMS de verdade — antes disso, ele só aparecia na própria tela ("Modo de teste"), o que não serve pra abrir o app pra gente de fora.
+O código de verificação de telefone agora é enviado por SMS de verdade — antes disso, ele só aparecia na própria tela ("Modo de teste"), o que não serve pra abrir o app pra gente de fora. Usa o **Twilio Verify**, um serviço pronto pra esse fluxo exato (o Twilio mesmo gera o código, cuida da expiração e do limite de tentativas — não precisamos guardar nada nosso).
 
-1. Crie uma conta em [zenvia.com](https://www.zenvia.com/) e ative o canal de SMS (costuma ter crédito de teste pra começar).
-2. No painel da Zenvia, gere um **API Token**.
-3. Configure o secret e publique as duas Edge Functions novas:
+1. Crie uma conta em [twilio.com/try-twilio](https://www.twilio.com/try-twilio) (cadastro autoatendido, ganha crédito de teste).
+2. No [Console do Twilio](https://console.twilio.com/), anote o **Account SID** e o **Auth Token** (aparecem na página inicial do painel).
+3. Vá em **Verify → Services** (menu lateral) e crie um novo **Verify Service** (qualquer nome, ex: "Urbix") — anote o **Service SID** (começa com `VA`).
+4. Configure os secrets e publique as duas Edge Functions novas:
    ```bash
-   supabase secrets set ZENVIA_API_TOKEN=seu-token-aqui
+   supabase secrets set TWILIO_ACCOUNT_SID=seu-account-sid
+   supabase secrets set TWILIO_AUTH_TOKEN=seu-auth-token
+   supabase secrets set TWILIO_VERIFY_SERVICE_SID=seu-verify-service-sid
    supabase functions deploy send-verification-code
    supabase functions deploy verify-phone-code
    ```
-4. O remetente (`from: "Urbix"`) e o formato exato da chamada em [`supabase/functions/send-verification-code/index.ts`](supabase/functions/send-verification-code/index.ts) foram montados com base no formato geral da API da Zenvia — confira contra a documentação atual da sua conta (**Documentação → SMS** no painel deles) antes do primeiro teste, e ajuste se algo tiver mudado.
-5. Teste mandando um código de verdade pro seu próprio celular na tela de entrada do app — deve chegar um SMS em alguns segundos.
+5. Números de teste (trial) do Twilio só mandam SMS pra números verificados na conta — em **Phone Numbers → Verified Caller IDs**, adicione o seu próprio celular antes de testar. Isso deixa de ser necessário quando você sair do modo trial (conta paga).
+6. O formato exato das chamadas em [`supabase/functions/send-verification-code/index.ts`](supabase/functions/send-verification-code/index.ts) e [`verify-phone-code/index.ts`](supabase/functions/verify-phone-code/index.ts) foi montado com base no conhecimento geral do modelo sobre a API do Twilio Verify (v2), não testado ao vivo — confira contra a documentação atual da sua conta se algo não bater.
+7. Teste mandando um código de verdade pro seu próprio celular (o que você verificou no passo 5) na tela de entrada do app — deve chegar um SMS em alguns segundos.
 
 ## 8. Preencher o `.env`
 
